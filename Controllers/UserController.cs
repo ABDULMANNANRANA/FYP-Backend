@@ -52,47 +52,44 @@ namespace TODOLISTAPI.Controllers
             {
                 var groups = await _context.GroupsUsers
                     .Include(g => g.GroupMembers)
-                    .ThenInclude(m => m.User)
+                        .ThenInclude(m => m.User)
                     .Select(g => new
                     {
                         id = g.Id,
-
                         name = g.Name,
-
                         createdBy = g.CreatedBy,
-
                         createdAt = g.CreatedAt,
 
-                        members = g.GroupMembers.Select(m => new
-                        {
-                            id = m.Id,
+                        members = g.GroupMembers
+                            .Select(m => new
+                            {
+                                id = m.Id,
 
-                            displayName = m.User != null
-                                ? (
-                                    (m.User.FirstName ?? "") +
-                                    " " +
-                                    (m.User.LastName ?? "")
-                                  ).Trim()
-                                : m.Name,
+                                userId = m.UserId,
 
-                            name = m.User != null
-                                ? (
-                                    (m.User.FirstName ?? "") +
-                                    " " +
-                                    (m.User.LastName ?? "")
-                                  ).Trim()
-                                : m.Name,
+                                displayName = m.User != null
+                                    ? (
+                                        ((m.User.FirstName ?? "") + " " +
+                                         (m.User.LastName ?? "")).Trim()
+                                      )
+                                    : (m.Name ?? ""),
 
-                            phone = m.User != null
-                                ? m.User.PhoneNumber
-                                : m.Phone,
+                                name = m.User != null
+                                    ? (
+                                        ((m.User.FirstName ?? "") + " " +
+                                         (m.User.LastName ?? "")).Trim()
+                                      )
+                                    : (m.Name ?? ""),
 
-                            role = m.Role,
+                                phone = m.User != null
+                                    ? m.User.PhoneNumber
+                                    : m.Phone,
 
-                            userId = m.UserId,
+                                role = m.Role,
 
-                            isRegistered = m.UserId != null
-                        }).ToList()
+                                isRegistered = m.UserId != null
+                            })
+                            .ToList()
                     })
                     .ToListAsync();
 
