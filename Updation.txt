@@ -1,0 +1,8 @@
+﻿
+
+
+
+
+Scaffold-DbContext "Server=RANAG\SQLEXPRESS;Database=TodoSmartAlerts;Trusted_Connection=True;Encrypt=False;" Microsoft.EntityFrameworkCore.SqlServer -OutputDir Models -Force
+
+
