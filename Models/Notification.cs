@@ -17,6 +17,12 @@ public partial class Notification
 
     public DateTime SentAt { get; set; }
 
+    public int? SenderId { get; set; }
+
+    public string? Type { get; set; }
+
+    public virtual User? Sender { get; set; }
+
     public virtual Task Task { get; set; } = null!;
 
     public virtual User User { get; set; } = null!;

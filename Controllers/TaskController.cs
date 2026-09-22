@@ -158,7 +158,8 @@ namespace TODOLISTAPI.Controllers
 
                             userId = m.UserId,
 
-                            isRegistered = m.UserId != null
+                            isRegistered = m.UserId != null,
+                            memberCount = g.GroupMembers.Count()
                         }).ToList()
                     })
                     .ToListAsync();
@@ -978,6 +979,719 @@ namespace TODOLISTAPI.Controllers
                 });
             }
         }
+
+
+        [HttpPost("{id}/pick")]
+        public async Task<IActionResult> PickTask(int id)
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst("UserId")?.Value;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                    return Unauthorized(new { message = "User not authenticated." });
+
+                if (!int.TryParse(userIdClaim, out int userId))
+                    return Unauthorized(new { message = "Invalid user ID." });
+
+                var task = await _context.Tasks
+                    .FirstOrDefaultAsync(t => t.Id == id);
+
+                if (task == null)
+                    return NotFound(new { message = "Task not found." });
+
+                if (!task.GroupId.HasValue)
+                    return BadRequest(new { message = "This is not a group task." });
+
+                if (task.Status != "Pending")
+                    return BadRequest(new
+                    {
+                        message = "This task is no longer available."
+                    });
+
+                var member = await _context.GroupMembers
+                    .FirstOrDefaultAsync(m =>
+                        m.GroupId == task.GroupId.Value &&
+                        m.UserId == userId);
+
+                if (member == null)
+                    return Forbid();
+
+                var user = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Id == userId);
+
+                if (user == null)
+                    return Unauthorized();
+
+                task.AssignedTo = userId;
+
+                var userName = $"{user.FirstName} {user.LastName}".Trim();
+
+                var groupMemberUserIds = await _context.GroupMembers
+                    .Where(m =>
+                        m.GroupId == task.GroupId.Value &&
+                        m.UserId != null &&
+                        m.UserId != userId)
+                    .Select(m => m.UserId!.Value)
+                    .Distinct()
+                    .ToListAsync();
+
+                foreach (var receiverId in groupMemberUserIds)
+                {
+                    _context.Notifications.Add(new Notification
+                    {
+                        TaskId = task.Id,
+                        UserId = receiverId,
+                        SenderId = userId,
+                        Type = "TaskPicked",
+                        Message = $"{userName} picked the task \"{task.Title}\".",
+                        IsRead = false,
+                        SentAt = DateTime.Now
+                    });
+                }
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Task picked successfully.",
+                    taskId = task.Id,
+                    assignedTo = userId,
+                    assignedToName = userName
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "Error while picking task.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        [HttpPost("{id}/ignore")]
+        public async Task<IActionResult> IgnoreTask(int id)
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst("UserId")?.Value;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                    return Unauthorized(new { message = "User not authenticated." });
+
+                if (!int.TryParse(userIdClaim, out int userId))
+                    return Unauthorized(new { message = "Invalid user ID." });
+
+                var task = await _context.Tasks
+                    .FirstOrDefaultAsync(t => t.Id == id);
+
+                if (task == null)
+                    return NotFound(new { message = "Task not found." });
+
+                if (!task.GroupId.HasValue)
+                    return BadRequest(new { message = "This is not a group task." });
+
+                var member = await _context.GroupMembers
+                    .FirstOrDefaultAsync(m =>
+                        m.GroupId == task.GroupId.Value &&
+                        m.UserId == userId);
+
+                if (member == null)
+                    return Forbid();
+
+                var user = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Id == userId);
+
+                if (user == null)
+                    return Unauthorized();
+
+                var userName = $"{user.FirstName} {user.LastName}".Trim();
+
+                var groupMemberUserIds = await _context.GroupMembers
+                    .Where(m =>
+                        m.GroupId == task.GroupId.Value &&
+                        m.UserId != null &&
+                        m.UserId != userId)
+                    .Select(m => m.UserId!.Value)
+                    .Distinct()
+                    .ToListAsync();
+
+                foreach (var receiverId in groupMemberUserIds)
+                {
+                    _context.Notifications.Add(new Notification
+                    {
+                        TaskId = task.Id,
+                        UserId = receiverId,
+                        SenderId = userId,
+                        Type = "TaskIgnored",
+                        Message = $"{userName} ignored the task \"{task.Title}\".",
+                        IsRead = false,
+                        SentAt = DateTime.Now
+                    });
+                }
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Task ignored successfully.",
+                    taskId = task.Id,
+                    ignoredBy = userId,
+                    ignoredByName = userName
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "Error while ignoring task.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        [HttpPost("{taskId}/mention")]
+        public async Task<IActionResult> MentionUsers(int taskId,[FromBody] MentionUserRequest request)
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst("UserId")?.Value;
+
+                if (!int.TryParse(userIdClaim, out int currentUserId))
+                {
+                    return Unauthorized(new
+                    {
+                        success = false,
+                        message = "Invalid or expired token."
+                    });
+                }
+
+                if (request == null)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Request is required."
+                    });
+                }
+
+                var mentionedUserIds = (request.MentionedUserIds ?? new List<int>())
+                    .Where(id => id > 0)
+                    .Distinct()
+                    .ToList();
+
+                var task = await _context.Tasks
+                    .FirstOrDefaultAsync(t => t.Id == taskId);
+
+                if (task == null)
+                {
+                    return NotFound(new
+                    {
+                        success = false,
+                        message = "Task not found."
+                    });
+                }
+
+                if (!task.GroupId.HasValue)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Only group tasks can contain mentions."
+                    });
+                }
+
+                int groupId = task.GroupId.Value;
+
+                bool currentUserIsMember = await _context.GroupMembers
+                    .AnyAsync(m =>
+                        m.GroupId == groupId &&
+                        m.UserId == currentUserId);
+
+                if (!currentUserIsMember)
+                {
+                    return Forbid();
+                }
+
+                // No user selected
+                if (mentionedUserIds.Count == 0)
+                {
+                    var existingMentions = await _context.TaskMentions
+                        .Where(x => x.TaskId == taskId)
+                        .Include(x => x.MentionedUser)
+                        .Include(x => x.MentionedByNavigation)
+                        .Select(x => new
+                        {
+                            id = x.Id,
+                            taskId = x.TaskId,
+                            mentionedUserId = x.MentionedUserId,
+                            mentionedUserName =
+                                ((x.MentionedUser.FirstName ?? "") + " " +
+                                 (x.MentionedUser.LastName ?? "")).Trim(),
+                            mentionedBy = x.MentionedBy,
+                            mentionedAt = x.MentionedAt
+                        })
+                        .OrderByDescending(x => x.mentionedAt)
+                        .ToListAsync();
+
+                    return Ok(new
+                    {
+                        success = true,
+                        message = "No members were selected for mention.",
+                        data = existingMentions
+                    });
+                }
+
+                // User cannot mention himself
+                if (mentionedUserIds.Contains(currentUserId))
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "You cannot mention yourself."
+                    });
+                }
+
+                // Get all selected group members
+                var validGroupMemberIds = await _context.GroupMembers
+                    .Where(m =>
+                        m.GroupId == groupId &&
+                        m.UserId.HasValue &&
+                        mentionedUserIds.Contains(m.UserId.Value))
+                    .Select(m => m.UserId!.Value)
+                    .Distinct()
+                    .ToListAsync();
+
+                // Find users that are not members of this group
+                var invalidUserIds = mentionedUserIds
+                    .Except(validGroupMemberIds)
+                    .ToList();
+
+                if (invalidUserIds.Count > 0)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "One or more selected users are not members of this group.",
+                        invalidUserIds = invalidUserIds
+                    });
+                }
+
+                // Get already existing mentions
+                var alreadyMentionedUserIds = await _context.TaskMentions
+                    .Where(x =>
+                        x.TaskId == taskId &&
+                        mentionedUserIds.Contains(x.MentionedUserId))
+                    .Select(x => x.MentionedUserId)
+                    .ToListAsync();
+
+                // Only create new mentions
+                var newMentionedUserIds = mentionedUserIds
+                    .Except(alreadyMentionedUserIds)
+                    .ToList();
+
+                var sender = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Id == currentUserId);
+
+                string senderName =
+                    $"{sender?.FirstName ?? ""} {sender?.LastName ?? ""}".Trim();
+
+                if (string.IsNullOrWhiteSpace(senderName))
+                {
+                    senderName = "A group member";
+                }
+
+                string taskTitle = task.Title ?? "a task";
+
+                var mentionedUsers = await _context.Users
+                    .Where(u => newMentionedUserIds.Contains(u.Id))
+                    .ToListAsync();
+
+                var newMentions = new List<TaskMention>();
+                var newNotifications = new List<Notification>();
+
+                foreach (var mentionedUser in mentionedUsers)
+                {
+                    var mention = new TaskMention
+                    {
+                        TaskId = taskId,
+                        MentionedUserId = mentionedUser.Id,
+                        MentionedBy = currentUserId,
+                        MentionedAt = DateTime.Now
+                    };
+
+                    newMentions.Add(mention);
+
+                    var notification = new Notification
+                    {
+                        TaskId = taskId,
+                        UserId = mentionedUser.Id,
+                        SenderId = currentUserId,
+                        Type = "Mention",
+                        Message = $"{senderName} mentioned you in task \"{taskTitle}\".",
+                        IsRead = false,
+                        SentAt = DateTime.Now
+                    };
+
+                    newNotifications.Add(notification);
+                }
+
+                if (newMentions.Count > 0)
+                {
+                    _context.TaskMentions.AddRange(newMentions);
+                }
+
+                if (newNotifications.Count > 0)
+                {
+                    _context.Notifications.AddRange(newNotifications);
+                }
+
+                await _context.SaveChangesAsync();
+
+                var result = newMentions
+                    .Select(mention =>
+                    {
+                        var user = mentionedUsers
+                            .FirstOrDefault(u => u.Id == mention.MentionedUserId);
+
+                        return new
+                        {
+                            id = mention.Id,
+                            taskId = mention.TaskId,
+                            mentionedUserId = mention.MentionedUserId,
+                            mentionedUserName =
+                                $"{user?.FirstName ?? ""} {user?.LastName ?? ""}".Trim(),
+                            mentionedBy = mention.MentionedBy,
+                            mentionedAt = mention.MentionedAt
+                        };
+                    })
+                    .ToList();
+
+                return Ok(new
+                {
+                    success = true,
+                    message = newMentions.Count == 0
+                        ? "All selected members were already mentioned."
+                        : $"{newMentions.Count} member(s) mentioned successfully.",
+                    data = result,
+                    alreadyMentionedUserIds = alreadyMentionedUserIds
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = ex.Message
+                });
+            }
+        }
+
+
+        [HttpGet("{taskId}/mentions")]
+        public async Task<IActionResult> GetTaskMentions(int taskId)
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst("UserId")?.Value;
+
+                if (!int.TryParse(userIdClaim, out int currentUserId))
+                {
+                    return Unauthorized(new
+                    {
+                        success = false,
+                        message = "Invalid or expired token."
+                    });
+                }
+
+                var task = await _context.Tasks
+                    .FirstOrDefaultAsync(t => t.Id == taskId);
+
+                if (task == null)
+                {
+                    return NotFound(new
+                    {
+                        success = false,
+                        message = "Task not found."
+                    });
+                }
+
+                if (!task.GroupId.HasValue)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "This is not a group task."
+                    });
+                }
+
+                int groupId = task.GroupId.Value;
+
+                bool isMember = await _context.GroupMembers
+                    .AnyAsync(m =>
+                        m.GroupId == groupId &&
+                        m.UserId == currentUserId);
+
+                if (!isMember)
+                {
+                    return Forbid();
+                }
+
+                var mentions = await _context.TaskMentions
+                    .Where(x => x.TaskId == taskId)
+                    .Include(x => x.MentionedUser)
+                    .Include(x => x.MentionedByNavigation)
+                    .Select(x => new
+                    {
+                        id = x.Id,
+
+                        taskId = x.TaskId,
+
+                        mentionedUserId = x.MentionedUserId,
+
+                        mentionedUserName =
+                            ((x.MentionedUser.FirstName ?? "") + " " +
+                             (x.MentionedUser.LastName ?? "")).Trim(),
+
+                        mentionedBy = x.MentionedBy,
+
+                        mentionedByName =
+                            ((x.MentionedByNavigation.FirstName ?? "") + " " +
+                             (x.MentionedByNavigation.LastName ?? "")).Trim(),
+
+                        mentionedAt = x.MentionedAt
+                    })
+                    .OrderByDescending(x => x.mentionedAt)
+                    .ToListAsync();
+
+                return Ok(new
+                {
+                    success = true,
+                    count = mentions.Count,
+                    data = mentions
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = ex.Message
+                });
+            }
+        }
+
+
+
+        [HttpGet("group/{groupId}/dashboard")]
+        public async Task<IActionResult> GetGroupDashboard(int groupId)
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst("UserId")?.Value;
+
+                if (!int.TryParse(userIdClaim, out int currentUserId))
+                {
+                    return Unauthorized(new
+                    {
+                        message = "Invalid user authentication."
+                    });
+                }
+
+                var group = await _context.GroupsUsers
+                    .FirstOrDefaultAsync(g => g.Id == groupId);
+
+                if (group == null)
+                {
+                    return NotFound(new
+                    {
+                        message = "Group not found."
+                    });
+                }
+
+                var isMember = await _context.GroupMembers
+                    .AnyAsync(gm =>
+                        gm.GroupId == groupId &&
+                        gm.UserId == currentUserId);
+
+                var isCreator = group.CreatedBy == currentUserId;
+
+                if (!isMember && !isCreator)
+                {
+                    return Forbid();
+                }
+
+                var members = await (
+                    from gm in _context.GroupMembers
+                    join u in _context.Users
+                        on gm.UserId equals u.Id into userJoin
+                    from u in userJoin.DefaultIfEmpty()
+                    where gm.GroupId == groupId
+                    select new
+                    {
+                        id = gm.Id,
+                        userId = gm.UserId,
+                        name = u != null
+                            ? (u.FirstName + " " + u.LastName).Trim()
+                            : gm.Name,
+                        phone = u != null
+                            ? u.PhoneNumber
+                            : gm.Phone,
+                        role = gm.Role,
+                        isRegistered = gm.UserId != null
+                    }
+                ).ToListAsync();
+
+                var tasks = await (
+                    from t in _context.Tasks
+                    join creator in _context.Users
+                        on t.CreatedBy equals creator.Id into creatorJoin
+                    from creator in creatorJoin.DefaultIfEmpty()
+
+                    join assigned in _context.Users
+                        on t.AssignedTo equals assigned.Id into assignedJoin
+                    from assigned in assignedJoin.DefaultIfEmpty()
+
+                    where t.GroupId == groupId
+
+                    select new
+                    {
+                        id = t.Id,
+                        title = t.Title,
+                        description = t.Description,
+                        isTimeBased = t.IsTimeBased,
+
+                        dueDate = t.DueDate,
+                        dueTime = t.DueTime,
+
+                        groupId = t.GroupId,
+
+                        createdBy = t.CreatedBy,
+                        createdByName = creator != null
+                            ? (creator.FirstName + " " + creator.LastName).Trim()
+                            : "",
+
+                        assignedTo = t.AssignedTo,
+                        assignedToName = assigned != null
+                            ? (assigned.FirstName + " " + assigned.LastName).Trim()
+                            : "",
+
+                        status = t.Status,
+
+                        latitude = t.Latitude,
+                        longitude = t.Longitude,
+
+                        geofenceRadiusMeters =
+                            t.GeofenceRadiusMeters,
+
+                        geofenceEnabled =
+                            t.GeofenceEnabled,
+
+                        createdAt = t.CreatedAt,
+                        updatedAt = t.UpdatedAt
+                    }
+                )
+                .OrderByDescending(t => t.createdAt)
+                .ToListAsync();
+
+                var taskIds = tasks
+                    .Select(t => t.id)
+                    .ToList();
+
+                var mentions = await (
+                    from tm in _context.TaskMentions
+                    join u in _context.Users
+                        on tm.MentionedUserId equals u.Id
+                    where taskIds.Contains(tm.TaskId)
+                    select new
+                    {
+                        taskId = tm.TaskId,
+                        mentionedUserId = tm.MentionedUserId,
+                        mentionedUserName =
+                            (u.FirstName + " " + u.LastName).Trim(),
+                        mentionedAt = tm.MentionedAt
+                    }
+                ).ToListAsync();
+
+                var taskResult = tasks.Select(t => new
+                {
+                    t.id,
+                    t.title,
+                    t.description,
+                    t.isTimeBased,
+                    t.dueDate,
+                    t.dueTime,
+                    t.groupId,
+                    t.createdBy,
+                    t.createdByName,
+                    t.assignedTo,
+                    t.assignedToName,
+                    t.status,
+                    t.latitude,
+                    t.longitude,
+                    t.geofenceRadiusMeters,
+                    t.geofenceEnabled,
+                    t.createdAt,
+                    t.updatedAt,
+
+                    mentions = mentions
+                        .Where(m => m.taskId == t.id)
+                        .Select(m => new
+                        {
+                            m.mentionedUserId,
+                            m.mentionedUserName,
+                            m.mentionedAt
+                        })
+                        .ToList()
+                }).ToList();
+
+                var pendingCount = taskResult.Count(t =>
+                    !string.Equals(
+                        t.status,
+                        "Done",
+                        StringComparison.OrdinalIgnoreCase));
+
+                var completedCount = taskResult.Count(t =>
+                    string.Equals(
+                        t.status,
+                        "Done",
+                        StringComparison.OrdinalIgnoreCase));
+
+                return Ok(new
+                {
+                    groupId = group.Id,
+                    groupName = group.Name,
+
+                    totalMembers = members.Count,
+
+                    members = members,
+
+                    totalTasks = taskResult.Count,
+
+                    pendingTasks = pendingCount,
+
+                    completedTasks = completedCount,
+
+                    tasks = taskResult
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(
+                    "GetGroupDashboard Error: " +
+                    ex.ToString());
+
+                return StatusCode(500, new
+                {
+                    message = "Failed to load group dashboard.",
+                    error = ex.Message
+                });
+            }
+        }
+
     }
 
     // ================================================================
@@ -986,6 +1700,11 @@ namespace TODOLISTAPI.Controllers
     public class SnoozeTaskRequest
     {
         public int MinutesToSnooze { get; set; }
+    }
+
+    public class MentionUserRequest
+    {
+        public List<int> MentionedUserIds { get; set; } = new List<int>();
     }
 }
 

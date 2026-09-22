@@ -799,6 +799,99 @@ namespace TODOLISTAPI.Controllers
                 });
             }
         }
+
+        [HttpGet("group/{groupId}/members")]
+        public async Task<IActionResult> GetGroupMembers(int groupId)
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst("UserId")?.Value;
+
+                if (!int.TryParse(userIdClaim, out int currentUserId))
+                {
+                    return Unauthorized(new
+                    {
+                        success = false,
+                        message = "Invalid or expired token."
+                    });
+                }
+
+                var group = await _context.GroupsUsers
+                    .FirstOrDefaultAsync(g =>
+                        g.Id == groupId &&
+                        (
+                            g.CreatedBy == currentUserId ||
+                            g.GroupMembers.Any(m => m.UserId == currentUserId)
+                        ));
+
+                if (group == null)
+                {
+                    return NotFound(new
+                    {
+                        success = false,
+                        message = "Group not found or you are not a member of this group."
+                    });
+                }
+
+                var members = await _context.GroupMembers
+                    .Where(m => m.GroupId == groupId)
+                    .Include(m => m.User)
+                    .Select(m => new
+                    {
+                        id = m.Id,
+                        userId = m.UserId,
+
+                        name = m.UserId != null
+                            ? ((m.User.FirstName ?? "") + " " + (m.User.LastName ?? "")).Trim()
+                            : (m.Name ?? "External Member"),
+
+                        firstName = m.UserId != null
+                            ? m.User.FirstName
+                            : m.Name,
+
+                        lastName = m.UserId != null
+                            ? m.User.LastName
+                            : "",
+
+                        email = m.UserId != null
+                            ? m.User.Email
+                            : null,
+
+                        phone = m.UserId != null
+                            ? m.User.PhoneNumber
+                            : m.Phone,
+
+                        role = m.Role,
+
+                        isRegistered = m.UserId != null,
+
+                        addedAt = m.AddedAt
+                    })
+                    .ToListAsync();
+
+                return Ok(new
+                {
+                    success = true,
+
+                    data = new
+                    {
+                        groupId = group.Id,
+                        groupName = group.Name,
+                        totalMembers = members.Count,
+                        members = members
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = ex.Message
+                });
+            }
+        }
+
     }
 
 

@@ -120,12 +120,19 @@ public partial class TodoSmartAlertsContext : DbContext
             entity.Property(e => e.SentAt)
                 .HasDefaultValueSql("(getdate())")
                 .HasColumnType("datetime");
+            entity.Property(e => e.Type)
+                .HasMaxLength(30)
+                .IsUnicode(false);
+
+            entity.HasOne(d => d.Sender).WithMany(p => p.NotificationSenders)
+                .HasForeignKey(d => d.SenderId)
+                .HasConstraintName("FK_Notifications_Sender");
 
             entity.HasOne(d => d.Task).WithMany(p => p.Notifications)
                 .HasForeignKey(d => d.TaskId)
                 .HasConstraintName("FK_Notifications_Task");
 
-            entity.HasOne(d => d.User).WithMany(p => p.Notifications)
+            entity.HasOne(d => d.User).WithMany(p => p.NotificationUsers)
                 .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK_Notifications_User");

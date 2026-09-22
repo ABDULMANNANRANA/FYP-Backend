@@ -112,6 +112,22 @@
   },
   {
     "ContainingType": "TODOLISTAPI.Controllers.ManagmentController",
+    "Method": "GetGroupMembers",
+    "RelativePath": "api/Managment/group/{groupId}/members",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "groupId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "TODOLISTAPI.Controllers.ManagmentController",
     "Method": "CreateTask",
     "RelativePath": "api/Managment/task",
     "HttpMethod": "POST",
@@ -128,7 +144,7 @@
   },
   {
     "ContainingType": "TODOLISTAPI.Controllers.NotificationController",
-    "Method": "GetAllNotifications",
+    "Method": "GetNotifications",
     "RelativePath": "api/Notification",
     "HttpMethod": "GET",
     "IsController": true,
@@ -150,26 +166,6 @@
         "IsRequired": true
       }
     ],
-    "ReturnTypes": []
-  },
-  {
-    "ContainingType": "TODOLISTAPI.Controllers.NotificationController",
-    "Method": "GetDueNotifications",
-    "RelativePath": "api/Notification/due",
-    "HttpMethod": "GET",
-    "IsController": true,
-    "Order": 0,
-    "Parameters": [],
-    "ReturnTypes": []
-  },
-  {
-    "ContainingType": "TODOLISTAPI.Controllers.NotificationController",
-    "Method": "MarkAllAsRead",
-    "RelativePath": "api/Notification/read-all",
-    "HttpMethod": "PUT",
-    "IsController": true,
-    "Order": 0,
-    "Parameters": [],
     "ReturnTypes": []
   },
   {
@@ -206,6 +202,38 @@
   },
   {
     "ContainingType": "TODOLISTAPI.Controllers.TaskController",
+    "Method": "IgnoreTask",
+    "RelativePath": "api/Task/{id}/ignore",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "TODOLISTAPI.Controllers.TaskController",
+    "Method": "PickTask",
+    "RelativePath": "api/Task/{id}/pick",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "TODOLISTAPI.Controllers.TaskController",
     "Method": "SnoozeTask",
     "RelativePath": "api/Task/{id}/snooze",
     "HttpMethod": "POST",
@@ -220,6 +248,43 @@
       {
         "Name": "request",
         "Type": "TODOLISTAPI.Controllers.SnoozeTaskRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "TODOLISTAPI.Controllers.TaskController",
+    "Method": "MentionUsers",
+    "RelativePath": "api/Task/{taskId}/mention",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "taskId",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "request",
+        "Type": "TODOLISTAPI.Controllers.MentionUserRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "TODOLISTAPI.Controllers.TaskController",
+    "Method": "GetTaskMentions",
+    "RelativePath": "api/Task/{taskId}/mentions",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "taskId",
+        "Type": "System.Int32",
         "IsRequired": true
       }
     ],
@@ -257,6 +322,22 @@
         "Name": "groupId",
         "Type": "System.Int32",
         "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "TODOLISTAPI.Controllers.TaskController",
+    "Method": "GetGroupDashboard",
+    "RelativePath": "api/Task/group/{groupId}/dashboard",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "groupId",
+        "Type": "System.Int32",
+        "IsRequired": true
       }
     ],
     "ReturnTypes": []

@@ -35,7 +35,9 @@ public partial class User
 
     public virtual ICollection<GroupsUser> GroupsUsers { get; set; } = new List<GroupsUser>();
 
-    public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();
+    public virtual ICollection<Notification> NotificationSenders { get; set; } = new List<Notification>();
+
+    public virtual ICollection<Notification> NotificationUsers { get; set; } = new List<Notification>();
 
     public virtual ICollection<SnoozeLog> SnoozeLogs { get; set; } = new List<SnoozeLog>();
 
