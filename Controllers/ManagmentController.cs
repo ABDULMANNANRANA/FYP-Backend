@@ -43,7 +43,7 @@ namespace TODOLISTAPI.Controllers
         // POST: api/Managment/{groupId}/members
         // ============================================================
         [HttpPost("{groupId}/members")]
-        public async Task<IActionResult> AddMember(int groupId,[FromBody] AddGroupMemberDto model)
+        public async Task<IActionResult> AddMember(int groupId, [FromBody] AddGroupMemberDto model)
         {
             try
             {
@@ -299,6 +299,13 @@ namespace TODOLISTAPI.Controllers
 
                     GroupId = model.GroupId,
 
+                    // Location based / place reminder.
+                    // Defaults match the database defaults (200 m, enabled).
+                    Latitude = model.Latitude,
+                    Longitude = model.Longitude,
+                    GeofenceRadiusMeters = model.GeofenceRadiusMeters ?? 200,
+                    GeofenceEnabled = model.GeofenceEnabled ?? true,
+
                     CreatedBy = loggedInUserId,
                     AssignedTo = null,
 
@@ -524,7 +531,7 @@ namespace TODOLISTAPI.Controllers
         // It supports both time-based and non-time-based tasks.
         // ============================================================
         [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateTask(int id,[FromBody] UpdateTaskRequest request)
+        public async Task<IActionResult> UpdateTask(int id, [FromBody] UpdateTaskRequest request)
         {
             try
             {
@@ -598,6 +605,27 @@ namespace TODOLISTAPI.Controllers
 
                 task.IsTimeBased = request.IsTimeBased;
 
+                // Place: only overwrite what the client actually sent.
+                if (request.Latitude.HasValue)
+                {
+                    task.Latitude = request.Latitude;
+                }
+
+                if (request.Longitude.HasValue)
+                {
+                    task.Longitude = request.Longitude;
+                }
+
+                if (request.GeofenceRadiusMeters.HasValue)
+                {
+                    task.GeofenceRadiusMeters = request.GeofenceRadiusMeters.Value;
+                }
+
+                if (request.GeofenceEnabled.HasValue)
+                {
+                    task.GeofenceEnabled = request.GeofenceEnabled.Value;
+                }
+
                 // ----------------------------------------------------
                 // Time-based task
                 // ----------------------------------------------------
@@ -651,7 +679,7 @@ namespace TODOLISTAPI.Controllers
         // POST: api/Managment/{taskId}/forward
         // ============================================================
         [HttpPost("{taskId}/forward")]
-        public async Task<IActionResult> ForwardTask(int taskId,[FromBody] ForwardTaskRequest request)
+        public async Task<IActionResult> ForwardTask(int taskId, [FromBody] ForwardTaskRequest request)
         {
             try
             {
@@ -925,6 +953,22 @@ namespace TODOLISTAPI.Controllers
         public bool IsTimeBased { get; set; }
 
         public int? GroupId { get; set; }
+
+        // ------------------------------------------------------------
+        // LOCATION BASED
+        //
+        // The place the task was created at, captured from the device GPS.
+        // A Location Based task has no date and no time - the place is its
+        // trigger. All four are optional: a task with no coordinates simply
+        // never raises a place reminder.
+        // ------------------------------------------------------------
+        public decimal? Latitude { get; set; }
+
+        public decimal? Longitude { get; set; }
+
+        public int? GeofenceRadiusMeters { get; set; }
+
+        public bool? GeofenceEnabled { get; set; }
     }
 
 
@@ -970,6 +1014,16 @@ namespace TODOLISTAPI.Controllers
         public TimeOnly? DueTime { get; set; }
 
         public bool IsTimeBased { get; set; }
+
+        // Place fields for a Location Based task. Applied only when the
+        // client sends them, so a partial edit cannot wipe a saved place.
+        public decimal? Latitude { get; set; }
+
+        public decimal? Longitude { get; set; }
+
+        public int? GeofenceRadiusMeters { get; set; }
+
+        public bool? GeofenceEnabled { get; set; }
     }
 
 

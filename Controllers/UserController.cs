@@ -375,6 +375,188 @@ namespace TODOLISTAPI.Controllers
 
 
         // ============================================================
+        // POST: api/User/location
+        //
+        // Live location ping from the mobile app.
+        //
+        // Written to Users.LastLatitude / LastLongitude /
+        // LastLocationUpdatedAt - one current position per user,
+        // overwritten each time the app reports in.
+        //
+        // Body: { "latitude": 33.6, "longitude": 73.0, "accuracy": 12.5 }
+        // ============================================================
+        [HttpPost("location")]
+        public async Task<IActionResult> UpdateLocation([FromBody] UpdateLocationDto dto)
+        {
+            try
+            {
+                if (dto == null)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Request body is required."
+                    });
+                }
+
+                if (!TryGetUserId(out int userId))
+                {
+                    return Unauthorized(new
+                    {
+                        success = false,
+                        message = "Invalid or expired token."
+                    });
+                }
+
+                // Reject coordinates that cannot be real.
+                if (dto.Latitude < -90 || dto.Latitude > 90)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Latitude must be between -90 and 90."
+                    });
+                }
+
+                if (dto.Longitude < -180 || dto.Longitude > 180)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Longitude must be between -180 and 180."
+                    });
+                }
+
+                var user = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Id == userId);
+
+                if (user == null)
+                {
+                    return NotFound(new
+                    {
+                        success = false,
+                        message = "User not found."
+                    });
+                }
+
+                var reportedAt = DateTime.Now;
+
+                user.LastLatitude = dto.Latitude;
+                user.LastLongitude = dto.Longitude;
+                user.LastLocationUpdatedAt = reportedAt;
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    success = true,
+
+                    message = "Location updated successfully.",
+
+                    data = new
+                    {
+                        latitude = dto.Latitude,
+
+                        longitude = dto.Longitude,
+
+                        accuracy = dto.Accuracy,
+
+                        updatedAt = reportedAt
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                // Log server-side; do not leak the exception to the client.
+                Console.WriteLine("UpdateLocation Error: " + ex.Message);
+
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "Failed to update location."
+                });
+            }
+        }
+
+
+        // ============================================================
+        // GET: api/User/location
+        //
+        // The last position the server received for the logged-in user.
+        // data is null when the user has never reported a position.
+        // ============================================================
+        [HttpGet("location")]
+        public async Task<IActionResult> GetLocation()
+        {
+            try
+            {
+                if (!TryGetUserId(out int userId))
+                {
+                    return Unauthorized(new
+                    {
+                        success = false,
+                        message = "Invalid or expired token."
+                    });
+                }
+
+                var user = await _context.Users
+                    .AsNoTracking()
+                    .Where(u => u.Id == userId)
+                    .Select(u => new
+                    {
+                        u.LastLatitude,
+                        u.LastLongitude,
+                        u.LastLocationUpdatedAt
+                    })
+                    .FirstOrDefaultAsync();
+
+                if (user == null)
+                {
+                    return NotFound(new
+                    {
+                        success = false,
+                        message = "User not found."
+                    });
+                }
+
+                bool neverReported =
+                    user.LastLatitude == null ||
+                    user.LastLongitude == null;
+
+                return Ok(new
+                {
+                    success = true,
+
+                    message = neverReported
+                        ? "No location has been reported yet."
+                        : "Last known location loaded successfully.",
+
+                    data = neverReported
+                        ? null
+                        : new
+                        {
+                            latitude = user.LastLatitude,
+
+                            longitude = user.LastLongitude,
+
+                            updatedAt = user.LastLocationUpdatedAt
+                        }
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("GetLocation Error: " + ex.Message);
+
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "Failed to load location."
+                });
+            }
+        }
+
+
+        // ============================================================
         // GET: api/User/tasks
         // Get tasks belonging to logged-in user
         // ============================================================
@@ -468,6 +650,20 @@ namespace TODOLISTAPI.Controllers
         public bool DarkModeEnabled { get; set; }
 
         public int SnoozeMinutes { get; set; }
+    }
+
+
+    // ================================================================
+    // DTO: Live Location Ping
+    // ================================================================
+    public class UpdateLocationDto
+    {
+        public double Latitude { get; set; }
+
+        public double Longitude { get; set; }
+
+        // Horizontal accuracy in metres, as reported by the device.
+        public double? Accuracy { get; set; }
     }
 }
 

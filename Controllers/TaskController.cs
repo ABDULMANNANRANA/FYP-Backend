@@ -381,7 +381,18 @@ namespace TODOLISTAPI.Controllers
 
                         isCompleted = false,
 
-                        groupId = t.GroupId
+                        groupId = t.GroupId,
+
+                        // The saved place, so the app can show the reminder
+                        // and open the right editor (a Location Based task
+                        // has no date and no time).
+                        latitude = t.Latitude,
+
+                        longitude = t.Longitude,
+
+                        geofenceRadiusMeters = t.GeofenceRadiusMeters,
+
+                        geofenceEnabled = t.GeofenceEnabled
                     })
                     .ToListAsync();
 
@@ -812,6 +823,110 @@ namespace TODOLISTAPI.Controllers
 
 
         // ============================================================
+        // GET: api/Task/geofences
+        //
+        // Place-reminder feed for the mobile app.
+        //
+        // Returns the logged-in user's tasks that carry a saved place, so
+        // the device can raise a "you are near this task" alert when it
+        // comes within GeofenceRadiusMeters of the point.
+        //
+        // Only tasks that can still be acted on are included:
+        //   * not Done, not Cancelled
+        //   * GeofenceEnabled = true
+        //   * Latitude and Longitude both present
+        //
+        // This is also how a Location Based task is identified: it is the
+        // one that has a place saved.
+        // ============================================================
+        [HttpGet("geofences")]
+        public async Task<IActionResult> GetGeofences()
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+
+                if (userId == null)
+                {
+                    return Unauthorized(new
+                    {
+                        success = false,
+                        message = "User is not authenticated."
+                    });
+                }
+
+                var geofences = await _context.Tasks
+                    .AsNoTracking()
+                    .Include(t => t.Group)
+                    .Where(t =>
+                        (
+                            t.AssignedTo == userId.Value ||
+                            (
+                                t.AssignedTo == null &&
+                                t.CreatedBy == userId.Value
+                            )
+                        ) &&
+                        t.Status != "Done" &&
+                        t.Status != "Cancelled" &&
+                        t.GeofenceEnabled &&
+                        t.Latitude != null &&
+                        t.Longitude != null)
+                    .OrderBy(t => t.DueDate)
+                    .ThenBy(t => t.DueTime)
+                    .Select(t => new
+                    {
+                        id = t.Id,
+
+                        title = t.Title,
+
+                        description = t.Description,
+
+                        latitude = t.Latitude,
+
+                        longitude = t.Longitude,
+
+                        geofenceRadiusMeters = t.GeofenceRadiusMeters,
+
+                        status = t.Status,
+
+                        dueDate = t.DueDate,
+
+                        dueTime = t.DueTime,
+
+                        isTimeBased = t.IsTimeBased,
+
+                        groupName =
+                            t.Group != null
+                                ? t.Group.Name
+                                : null
+                    })
+                    .ToListAsync();
+
+                return Ok(new
+                {
+                    success = true,
+
+                    message = "Geofence targets loaded successfully.",
+
+                    count = geofences.Count,
+
+                    data = geofences
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("GetGeofences Error: " + ex.Message);
+
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "Failed to load geofence targets."
+                });
+            }
+        }
+
+
+        // ============================================================
         // GET: api/Task/history
         //
         // History Screen API
@@ -1154,7 +1269,7 @@ namespace TODOLISTAPI.Controllers
         }
 
         [HttpPost("{taskId}/mention")]
-        public async Task<IActionResult> MentionUsers(int taskId,[FromBody] MentionUserRequest request)
+        public async Task<IActionResult> MentionUsers(int taskId, [FromBody] MentionUserRequest request)
         {
             try
             {

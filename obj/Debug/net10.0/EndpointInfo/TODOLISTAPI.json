@@ -533,6 +533,18 @@
         }
       }
     },
+    "/api/Task/geofences": {
+      "get": {
+        "tags": [
+          "Task"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/Task/history": {
       "get": {
         "tags": [
@@ -753,6 +765,47 @@
         }
       }
     },
+    "/api/User/location": {
+      "post": {
+        "tags": [
+          "User"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLocationDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLocationDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLocationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "User"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/User/tasks": {
       "get": {
         "tags": [
@@ -849,6 +902,25 @@
           "groupId": {
             "type": "integer",
             "format": "int32",
+            "nullable": true
+          },
+          "latitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "geofenceRadiusMeters": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "geofenceEnabled": {
+            "type": "boolean",
             "nullable": true
           }
         },
@@ -950,6 +1022,25 @@
         },
         "additionalProperties": false
       },
+      "UpdateLocationDto": {
+        "type": "object",
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "format": "double"
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double"
+          },
+          "accuracy": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "UpdateSettingsDto": {
         "type": "object",
         "properties": {
@@ -989,6 +1080,25 @@
           },
           "isTimeBased": {
             "type": "boolean"
+          },
+          "latitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "longitude": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "geofenceRadiusMeters": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "geofenceEnabled": {
+            "type": "boolean",
+            "nullable": true
           }
         },
         "additionalProperties": false

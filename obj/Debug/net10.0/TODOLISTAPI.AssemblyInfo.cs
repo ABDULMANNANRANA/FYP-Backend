@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("TODOLISTAPI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+392dab3dbbf7a5cbae941a0c857300bedb10499e")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+50f6f47b27a419c4dc2629c9eebc6a085e31eb0d")]
 [assembly: System.Reflection.AssemblyProductAttribute("TODOLISTAPI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TODOLISTAPI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

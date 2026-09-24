@@ -302,6 +302,16 @@
   },
   {
     "ContainingType": "TODOLISTAPI.Controllers.TaskController",
+    "Method": "GetGeofences",
+    "RelativePath": "api/Task/geofences",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "TODOLISTAPI.Controllers.TaskController",
     "Method": "GetGroupTasks",
     "RelativePath": "api/Task/group",
     "HttpMethod": "GET",
@@ -425,6 +435,32 @@
     "ContainingType": "TODOLISTAPI.Controllers.UserController",
     "Method": "GetGroups",
     "RelativePath": "api/User/groups",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "TODOLISTAPI.Controllers.UserController",
+    "Method": "UpdateLocation",
+    "RelativePath": "api/User/location",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "dto",
+        "Type": "TODOLISTAPI.Controllers.UpdateLocationDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "TODOLISTAPI.Controllers.UserController",
+    "Method": "GetLocation",
+    "RelativePath": "api/User/location",
     "HttpMethod": "GET",
     "IsController": true,
     "Order": 0,
