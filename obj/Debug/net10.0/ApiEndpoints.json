@@ -170,22 +170,6 @@
   },
   {
     "ContainingType": "TODOLISTAPI.Controllers.TaskController",
-    "Method": "GetTasks",
-    "RelativePath": "api/Task",
-    "HttpMethod": "GET",
-    "IsController": true,
-    "Order": 0,
-    "Parameters": [
-      {
-        "Name": "isTimeBased",
-        "Type": "System.Boolean",
-        "IsRequired": false
-      }
-    ],
-    "ReturnTypes": []
-  },
-  {
-    "ContainingType": "TODOLISTAPI.Controllers.TaskController",
     "Method": "MarkDone",
     "RelativePath": "api/Task/{id}/done",
     "HttpMethod": "POST",
@@ -390,6 +374,11 @@
         "Name": "isTimeBased",
         "Type": "System.Boolean",
         "IsRequired": false
+      },
+      {
+        "Name": "locationBased",
+        "Type": "System.Nullable\u00601[[System.Boolean, System.Private.CoreLib, Version=10.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]",
+        "IsRequired": false
       }
     ],
     "ReturnTypes": []
@@ -411,6 +400,22 @@
         "Name": "isTimeBased",
         "Type": "System.Boolean",
         "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "TODOLISTAPI.Controllers.TaskController",
+    "Method": "GetTaskById",
+    "RelativePath": "api/Task/task/{id}",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
       }
     ],
     "ReturnTypes": []

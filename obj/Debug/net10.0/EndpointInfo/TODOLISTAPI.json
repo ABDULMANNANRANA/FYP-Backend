@@ -412,17 +412,19 @@
         }
       }
     },
-    "/api/Task": {
+    "/api/Task/task/{id}": {
       "get": {
         "tags": [
           "Task"
         ],
         "parameters": [
           {
-            "name": "isTimeBased",
-            "in": "query",
+            "name": "id",
+            "in": "path",
+            "required": true,
             "schema": {
-              "type": "boolean"
+              "type": "integer",
+              "format": "int32"
             }
           }
         ],
@@ -431,9 +433,7 @@
             "description": "OK"
           }
         }
-      }
-    },
-    "/api/Task/task/{id}": {
+      },
       "delete": {
         "tags": [
           "Task"
@@ -553,6 +553,13 @@
         "parameters": [
           {
             "name": "isTimeBased",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "locationBased",
             "in": "query",
             "schema": {
               "type": "boolean"

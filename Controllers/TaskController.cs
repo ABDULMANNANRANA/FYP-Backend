@@ -191,10 +191,7 @@ namespace TODOLISTAPI.Controllers
         // Group dashboard tasks
         // ============================================================
         [HttpGet("group")]
-        public async Task<IActionResult> GetGroupTasks(
-            [FromQuery] string? tab,
-            [FromQuery] bool isTimeBased,
-            [FromQuery] int groupId)
+        public async Task<IActionResult> GetGroupTasks([FromQuery] string? tab, [FromQuery] bool isTimeBased, [FromQuery] int groupId)
         {
             try
             {
@@ -421,9 +418,82 @@ namespace TODOLISTAPI.Controllers
         // General task endpoint.
         // This endpoint is NOT used by HomeDashboard.
         // ============================================================
-        [HttpGet]
-        public async Task<IActionResult> GetTasks(
-            [FromQuery] bool isTimeBased)
+        //[HttpGet]
+        //public async Task<IActionResult> GetTasks(
+        //    [FromQuery] bool isTimeBased)
+        //{
+        //    try
+        //    {
+        //        var userId = GetCurrentUserId();
+
+        //        if (userId == null)
+        //        {
+        //            return Unauthorized(new
+        //            {
+        //                success = false,
+        //                message = "User is not authenticated."
+        //            });
+        //        }
+
+        //        var tasks = await _context.Tasks
+        //            .AsNoTracking()
+        //            .Where(t =>
+        //                t.IsTimeBased == isTimeBased &&
+        //                (
+        //                    t.AssignedTo == userId.Value ||
+        //                    (
+        //                        t.AssignedTo == null &&
+        //                        t.CreatedBy == userId.Value
+        //                    )
+        //                ))
+        //            .OrderBy(t => t.Status == "Done")
+        //            .ThenBy(t => t.DueDate)
+        //            .ThenBy(t => t.DueTime)
+        //            .Select(t => new
+        //            {
+        //                id = t.Id,
+        //                title = t.Title,
+        //                description = t.Description,
+        //                dueDate = t.DueDate,
+        //                dueTime = t.DueTime,
+        //                isTimeBased = t.IsTimeBased,
+        //                status = t.Status,
+        //                isCompleted = t.Status == "Done",
+        //                groupId = t.GroupId,
+        //                createdBy = t.CreatedBy,
+        //                assignedTo = t.AssignedTo,
+        //                createdAt = t.CreatedAt,
+        //                updatedAt = t.UpdatedAt
+        //            })
+        //            .ToListAsync();
+
+        //        return Ok(new
+        //        {
+        //            success = true,
+        //            message = "Tasks fetched successfully.",
+        //            data = tasks
+        //        });
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return StatusCode(500, new
+        //        {
+        //            success = false,
+        //            message = ex.Message
+        //        });
+        //    }
+        //}
+        // ============================================================
+        // GET: api/Task/task/{id}
+        //
+        // Full details of one task, used by the app's Task Overview
+        // screen. Includes the saved place (latitude / longitude /
+        // geofence radius / geofence enabled) so a Location Based task
+        // can show every relevant detail, and the creator / assignee
+        // names so the screen never has to guess.
+        // ============================================================
+        [HttpGet("task/{id}")]
+        public async Task<IActionResult> GetTaskById(int id)
         {
             try
             {
@@ -438,54 +508,134 @@ namespace TODOLISTAPI.Controllers
                     });
                 }
 
-                var tasks = await _context.Tasks
+                var task = await _context.Tasks
                     .AsNoTracking()
-                    .Where(t =>
-                        t.IsTimeBased == isTimeBased &&
-                        (
-                            t.AssignedTo == userId.Value ||
-                            (
-                                t.AssignedTo == null &&
-                                t.CreatedBy == userId.Value
-                            )
-                        ))
-                    .OrderBy(t => t.Status == "Done")
-                    .ThenBy(t => t.DueDate)
-                    .ThenBy(t => t.DueTime)
+                    .Where(t => t.Id == id)
                     .Select(t => new
                     {
-                        id = t.Id,
-                        title = t.Title,
-                        description = t.Description,
-                        dueDate = t.DueDate,
-                        dueTime = t.DueTime,
-                        isTimeBased = t.IsTimeBased,
-                        status = t.Status,
-                        isCompleted = t.Status == "Done",
-                        groupId = t.GroupId,
-                        createdBy = t.CreatedBy,
-                        assignedTo = t.AssignedTo,
-                        createdAt = t.CreatedAt,
-                        updatedAt = t.UpdatedAt
+                        t.Id,
+                        t.Title,
+                        t.Description,
+                        t.IsTimeBased,
+                        t.DueDate,
+                        t.DueTime,
+                        t.GroupId,
+
+                        GroupName =
+                            t.Group != null
+                                ? t.Group.Name
+                                : null,
+
+                        t.CreatedBy,
+
+                        CreatedByName =
+                            ((t.CreatedByNavigation.FirstName ?? "") + " " +
+                             (t.CreatedByNavigation.LastName ?? "")).Trim(),
+
+                        t.AssignedTo,
+
+                        AssignedToName =
+                            t.AssignedToNavigation != null
+                                ? ((t.AssignedToNavigation.FirstName ?? "") + " " +
+                                   (t.AssignedToNavigation.LastName ?? "")).Trim()
+                                : null,
+
+                        t.Status,
+                        t.Latitude,
+                        t.Longitude,
+                        t.GeofenceRadiusMeters,
+                        t.GeofenceEnabled,
+                        t.CreatedAt,
+                        t.UpdatedAt
                     })
-                    .ToListAsync();
+                    .FirstOrDefaultAsync();
+
+                if (task == null)
+                {
+                    return NotFound(new
+                    {
+                        success = false,
+                        message = "Task not found."
+                    });
+                }
+
+                // Access: the creator, the assignee, or a member of the
+                // task's group may view it.
+                bool allowed =
+                    task.CreatedBy == userId.Value ||
+                    task.AssignedTo == userId.Value ||
+                    (
+                        task.GroupId != null &&
+                        await _context.GroupMembers.AnyAsync(m =>
+                            m.GroupId == task.GroupId &&
+                            m.UserId == userId.Value)
+                    );
+
+                if (!allowed)
+                {
+                    return Forbid();
+                }
+
+                // A Location Based task is one that carries a saved place.
+                bool hasPlace =
+                    task.Latitude != null &&
+                    task.Longitude != null;
 
                 return Ok(new
                 {
                     success = true,
-                    message = "Tasks fetched successfully.",
-                    data = tasks
+                    message = "Task fetched successfully.",
+                    data = new
+                    {
+                        id = task.Id,
+                        title = task.Title,
+                        description = task.Description,
+
+                        isTimeBased = task.IsTimeBased,
+                        isLocationBased = hasPlace,
+
+                        isCompleted =
+                            string.Equals(
+                                task.Status,
+                                "Done",
+                                StringComparison.OrdinalIgnoreCase),
+
+                        status = task.Status,
+
+                        dueDate = task.DueDate,
+                        dueTime = task.DueTime,
+
+                        groupId = task.GroupId,
+                        groupName = task.GroupName,
+
+                        createdBy = task.CreatedBy,
+                        createdByName = task.CreatedByName,
+
+                        assignedTo = task.AssignedTo,
+                        assignedToName = task.AssignedToName,
+
+                        latitude = task.Latitude,
+                        longitude = task.Longitude,
+                        geofenceRadiusMeters = task.GeofenceRadiusMeters,
+                        geofenceEnabled = task.GeofenceEnabled,
+
+                        createdAt = task.CreatedAt,
+                        updatedAt = task.UpdatedAt
+                    }
                 });
             }
             catch (Exception ex)
             {
+                Console.WriteLine("GetTaskById Error: " + ex.Message);
+
                 return StatusCode(500, new
                 {
                     success = false,
-                    message = ex.Message
+                    message = "Failed to fetch task."
                 });
             }
         }
+
 
         // ============================================================
         // DELETE: api/Task/task/{id}
@@ -938,14 +1088,23 @@ namespace TODOLISTAPI.Controllers
         // 3. Upcoming / Today
         //
         // Only returns tasks belonging to the logged-in user.
-        // Supports both time-based and non-time-based tasks.
         //
-        // Example:
+        // Filters:
+        //   isTimeBased=true   -> Time Based history
+        //   isTimeBased=false  -> Non Time Based history
+        //   &locationBased=true  -> only tasks WITH a saved place
+        //   &locationBased=false -> only tasks WITHOUT a saved place
+        //   (omit locationBased  -> no saved-place filter)
+        //
+        // Examples:
         // GET /api/Task/history?isTimeBased=true
-        // GET /api/Task/history?isTimeBased=false
+        // GET /api/Task/history?isTimeBased=false&locationBased=false
+        // GET /api/Task/history?isTimeBased=false&locationBased=true
         // ============================================================
         [HttpGet("history")]
-        public async Task<IActionResult> GetTaskHistory([FromQuery] bool isTimeBased)
+        public async Task<IActionResult> GetTaskHistory(
+            [FromQuery] bool isTimeBased,
+            [FromQuery] bool? locationBased)
         {
             try
             {
@@ -966,19 +1125,61 @@ namespace TODOLISTAPI.Controllers
                 // BASE QUERY
                 //
                 // Only tasks belonging to logged-in user.
-                // Only selected task type.
+                //
+                // EACH HISTORY TAB RETURNS ONLY ITS OWN TASK TYPE:
+                //
+                //   Time Based tab
+                //     ?isTimeBased=true
+                //     -> ONLY time-based tasks
+                //
+                //   Non Time Based tab
+                //     ?isTimeBased=false&locationBased=false
+                //     -> ONLY non-time tasks WITHOUT a saved place
+                //
+                //   Location Based tab
+                //     ?isTimeBased=false&locationBased=true
+                //     -> ONLY non-time tasks WITH a saved place
                 // ========================================================
                 var baseQuery = _context.Tasks
                     .AsNoTracking()
                     .Where(t =>
-                        t.IsTimeBased == isTimeBased &&
+                        t.AssignedTo == userId.Value ||
                         (
-                            t.AssignedTo == userId.Value ||
-                            (
-                                t.AssignedTo == null &&
-                                t.CreatedBy == userId.Value
-                            )
+                            t.AssignedTo == null &&
+                            t.CreatedBy == userId.Value
                         ));
+
+                if (isTimeBased)
+                {
+                    // TIME BASED tab: only time-based tasks.
+                    baseQuery = baseQuery.Where(t =>
+                        t.IsTimeBased == true);
+                }
+                else if (locationBased == true)
+                {
+                    // LOCATION BASED tab: only non-time tasks that
+                    // carry a saved place (latitude + longitude).
+                    baseQuery = baseQuery.Where(t =>
+                        t.IsTimeBased == false &&
+                        t.Latitude != null &&
+                        t.Longitude != null);
+                }
+                else if (locationBased == false)
+                {
+                    // NON TIME BASED tab: only non-time tasks
+                    // WITHOUT a saved place.
+                    baseQuery = baseQuery.Where(t =>
+                        t.IsTimeBased == false &&
+                        t.Latitude == null &&
+                        t.Longitude == null);
+                }
+                else
+                {
+                    // Legacy callers: ?isTimeBased=false with no
+                    // locationBased -> every non-time task.
+                    baseQuery = baseQuery.Where(t =>
+                        t.IsTimeBased == false);
+                }
 
                 // ========================================================
                 // PENDING TASKS
@@ -1001,7 +1202,16 @@ namespace TODOLISTAPI.Controllers
                         isTimeBased = t.IsTimeBased,
                         status = t.Status,
                         isCompleted = false,
-                        groupId = t.GroupId
+                        groupId = t.GroupId,
+
+                        isLocationBased =
+                            t.Latitude != null &&
+                            t.Longitude != null,
+
+                        latitude = t.Latitude,
+                        longitude = t.Longitude,
+                        geofenceRadiusMeters = t.GeofenceRadiusMeters,
+                        geofenceEnabled = t.GeofenceEnabled
                     })
                     .ToListAsync();
 
@@ -1023,7 +1233,16 @@ namespace TODOLISTAPI.Controllers
                         isTimeBased = t.IsTimeBased,
                         status = t.Status,
                         isCompleted = true,
-                        groupId = t.GroupId
+                        groupId = t.GroupId,
+
+                        isLocationBased =
+                            t.Latitude != null &&
+                            t.Longitude != null,
+
+                        latitude = t.Latitude,
+                        longitude = t.Longitude,
+                        geofenceRadiusMeters = t.GeofenceRadiusMeters,
+                        geofenceEnabled = t.GeofenceEnabled
                     })
                     .ToListAsync();
 
@@ -1057,7 +1276,16 @@ namespace TODOLISTAPI.Controllers
                         isTimeBased = t.IsTimeBased,
                         status = t.Status,
                         isCompleted = false,
-                        groupId = t.GroupId
+                        groupId = t.GroupId,
+
+                        isLocationBased =
+                            t.Latitude != null &&
+                            t.Longitude != null,
+
+                        latitude = t.Latitude,
+                        longitude = t.Longitude,
+                        geofenceRadiusMeters = t.GeofenceRadiusMeters,
+                        geofenceEnabled = t.GeofenceEnabled
                     })
                     .ToListAsync();
 
