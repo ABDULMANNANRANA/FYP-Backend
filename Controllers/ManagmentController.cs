@@ -319,6 +319,58 @@ namespace TODOLISTAPI.Controllers
 
                 await _context.SaveChangesAsync();
 
+                // =====================================================
+                // NOTIFICATIONS: "created the task"
+                //
+                // Group task -> notify the other group members so it
+                // shows in their NotificationScreen AND the group
+                // activity feed. Personal task -> nobody else is
+                // involved.
+                // =====================================================
+                if (task.GroupId != null)
+                {
+                    var creator = await _context.Users
+                        .FirstOrDefaultAsync(u => u.Id == loggedInUserId);
+
+                    var creatorName = creator != null
+                        ? ($"{creator.FirstName} {creator.LastName}").Trim()
+                        : "Someone";
+
+                    var groupName = await _context.GroupsUsers
+                        .Where(g => g.Id == task.GroupId.Value)
+                        .Select(g => g.Name)
+                        .FirstOrDefaultAsync();
+
+                    var memberIds = await _context.GroupMembers
+                        .Where(m =>
+                            m.GroupId == task.GroupId.Value &&
+                            m.UserId != null &&
+                            m.UserId != loggedInUserId)
+                        .Select(m => m.UserId!.Value)
+                        .Distinct()
+                        .ToListAsync();
+
+                    foreach (var receiverId in memberIds)
+                    {
+                        _context.Notifications.Add(new Notification
+                        {
+                            TaskId = task.Id,
+                            UserId = receiverId,
+                            SenderId = loggedInUserId,
+                            Type = "TaskCreated",
+                            Message =
+                                $"{creatorName} created the task \"{task.Title}\"" +
+                                (string.IsNullOrWhiteSpace(groupName)
+                                    ? "."
+                                    : $" in group \"{groupName}\"."),
+                            IsRead = false,
+                            SentAt = DateTime.Now
+                        });
+                    }
+
+                    await _context.SaveChangesAsync();
+                }
+
                 return Ok(new
                 {
                     success = true,

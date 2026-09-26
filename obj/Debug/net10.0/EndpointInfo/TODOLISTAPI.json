@@ -278,7 +278,7 @@
         }
       }
     },
-    "/api/Notification": {
+    "/api/Notification/GetNotifications": {
       "get": {
         "tags": [
           "Notification"
@@ -305,6 +305,30 @@
               "format": "int32"
             }
           }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Notification/unread-count": {
+      "get": {
+        "tags": [
+          "Notification"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/Notification/read-all": {
+      "put": {
+        "tags": [
+          "Notification"
         ],
         "responses": {
           "200": {

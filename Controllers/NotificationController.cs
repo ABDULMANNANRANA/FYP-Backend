@@ -17,7 +17,7 @@ namespace TODOLISTAPI.Controllers
             _context = context;
         }
 
-        [HttpGet]
+        [HttpGet("GetNotifications")]
         public async Task<IActionResult> GetNotifications()
         {
             try
@@ -93,9 +93,95 @@ namespace TODOLISTAPI.Controllers
                 success = true
             });
         }
+
+        // ============================================================
+        // GET: api/Notification/unread-count
+        //
+        // How many unread notifications the logged-in user has
+        // (the badge on the bell icon).
+        // ============================================================
+        [HttpGet("unread-count")]
+        public async Task<IActionResult> GetUnreadCount()
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst("UserId")?.Value;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                    return Unauthorized();
+
+                if (!int.TryParse(userIdClaim, out int userId))
+                    return Unauthorized();
+
+                var count = await _context.Notifications
+                    .CountAsync(n =>
+                        n.UserId == userId &&
+                        !n.IsRead);
+
+                return Ok(new
+                {
+                    success = true,
+                    count
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "Error while counting notifications.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        // ============================================================
+        // PUT: api/Notification/read-all
+        //
+        // Marks every unread notification as read.
+        // ============================================================
+        [HttpPut("read-all")]
+        public async Task<IActionResult> MarkAllAsRead()
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst("UserId")?.Value;
+
+                if (string.IsNullOrEmpty(userIdClaim))
+                    return Unauthorized();
+
+                if (!int.TryParse(userIdClaim, out int userId))
+                    return Unauthorized();
+
+                var unread = await _context.Notifications
+                    .Where(n =>
+                        n.UserId == userId &&
+                        !n.IsRead)
+                    .ToListAsync();
+
+                foreach (var notification in unread)
+                {
+                    notification.IsRead = true;
+                }
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    success = true,
+                    updated = unread.Count
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "Error while marking notifications as read.",
+                    error = ex.Message
+                });
+            }
+        }
     }
 }
-
 
 
 

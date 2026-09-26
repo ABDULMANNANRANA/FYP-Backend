@@ -88,6 +88,61 @@ namespace TODOLISTAPI.Controllers
                 task.Status = "Done";
                 task.UpdatedAt = DateTime.Now;
 
+                // =====================================================
+                // NOTIFICATIONS: tell the others the task is done
+                //
+                // Group task    -> the other group members.
+                // Personal task -> the other party (creator / assignee).
+                // =====================================================
+                var doneBy = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Id == userId.Value);
+
+                var doneByName = doneBy != null
+                    ? ($"{doneBy.FirstName} {doneBy.LastName}").Trim()
+                    : "Someone";
+
+                var doneReceivers = new List<int>();
+
+                if (task.GroupId != null)
+                {
+                    doneReceivers = await _context.GroupMembers
+                        .Where(m =>
+                            m.GroupId == task.GroupId.Value &&
+                            m.UserId != null &&
+                            m.UserId != userId.Value)
+                        .Select(m => m.UserId!.Value)
+                        .Distinct()
+                        .ToListAsync();
+                }
+                else
+                {
+                    int? otherParty =
+                        task.CreatedBy != userId.Value
+                            ? task.CreatedBy
+                            : task.AssignedTo;
+
+                    if (
+                        otherParty != null &&
+                        otherParty != userId.Value)
+                    {
+                        doneReceivers.Add(otherParty.Value);
+                    }
+                }
+
+                foreach (var receiverId in doneReceivers)
+                {
+                    _context.Notifications.Add(new Notification
+                    {
+                        TaskId = task.Id,
+                        UserId = receiverId,
+                        SenderId = userId.Value,
+                        Type = "TaskDone",
+                        Message = $"{doneByName} completed the task \"{task.Title}\".",
+                        IsRead = false,
+                        SentAt = DateTime.Now
+                    });
+                }
+
                 await _context.SaveChangesAsync();
 
                 return Ok(new
@@ -1959,6 +2014,52 @@ namespace TODOLISTAPI.Controllers
                     }
                 ).ToListAsync();
 
+                // =====================================================
+                // RECENT GROUP ACTIVITY
+                //
+                // Pick / Ignore / Mention / Create / Done / Forward
+                // events on this group's tasks — shown on the group
+                // screen next to the notification screen.
+                // =====================================================
+                var activityRows = await (
+                    from n in _context.Notifications
+                    join s in _context.Users
+                        on n.SenderId equals s.Id into senderJoin
+                    from s in senderJoin.DefaultIfEmpty()
+                    where taskIds.Contains(n.TaskId)
+                    orderby n.SentAt descending
+                    select new
+                    {
+                        id = n.Id,
+                        taskId = n.TaskId,
+                        taskTitle = n.Task.Title,
+                        type = n.Type,
+                        message = n.Message,
+                        senderId = n.SenderId,
+                        senderName = s != null
+                            ? (s.FirstName + " " + s.LastName).Trim()
+                            : null,
+                        isRead = n.IsRead,
+                        sentAt = n.SentAt
+                    })
+                    .Take(60)
+                    .ToListAsync();
+
+                // Each event is stored once per receiver — collapse
+                // the duplicates into one activity row per event.
+                var recentActivity = activityRows
+                    .GroupBy(a => new
+                    {
+                        a.taskId,
+                        a.type,
+                        a.senderId,
+                        a.message
+                    })
+                    .Select(g => g.First())
+                    .OrderByDescending(a => a.sentAt)
+                    .Take(15)
+                    .ToList();
+
                 var taskResult = tasks.Select(t => new
                 {
                     t.id,
@@ -2018,7 +2119,9 @@ namespace TODOLISTAPI.Controllers
 
                     completedTasks = completedCount,
 
-                    tasks = taskResult
+                    tasks = taskResult,
+
+                    recentActivity = recentActivity
                 });
             }
             catch (Exception ex)
