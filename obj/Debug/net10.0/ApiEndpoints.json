@@ -144,6 +144,16 @@
   },
   {
     "ContainingType": "TODOLISTAPI.Controllers.NotificationController",
+    "Method": "GetNotifications",
+    "RelativePath": "api/Notification",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "TODOLISTAPI.Controllers.NotificationController",
     "Method": "MarkAsRead",
     "RelativePath": "api/Notification/{id}/read",
     "HttpMethod": "PUT",

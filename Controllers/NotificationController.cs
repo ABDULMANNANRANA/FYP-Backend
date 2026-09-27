@@ -17,6 +17,10 @@ namespace TODOLISTAPI.Controllers
             _context = context;
         }
 
+        // Both routes work:
+        //   GET /api/Notification
+        //   GET /api/Notification/GetNotifications
+        [HttpGet]
         [HttpGet("GetNotifications")]
         public async Task<IActionResult> GetNotifications()
         {
@@ -32,6 +36,16 @@ namespace TODOLISTAPI.Controllers
 
                 var notifications = await _context.Notifications
                     .Where(n => n.UserId == userId)
+
+                    // =================================================
+                    // SKIP LEGACY SAMPLE ROWS ("dummy data")
+                    //
+                    // Rows seeded by the old schema script have no Type
+                    // and no SenderId. Every real notification created
+                    // by the API sets both. Never return those rows.
+                    // =================================================
+                    .Where(n => n.Type != null || n.SenderId != null)
+
                     .OrderByDescending(n => n.SentAt)
                     .Select(n => new
                     {
@@ -116,7 +130,8 @@ namespace TODOLISTAPI.Controllers
                 var count = await _context.Notifications
                     .CountAsync(n =>
                         n.UserId == userId &&
-                        !n.IsRead);
+                        !n.IsRead &&
+                        (n.Type != null || n.SenderId != null));
 
                 return Ok(new
                 {
