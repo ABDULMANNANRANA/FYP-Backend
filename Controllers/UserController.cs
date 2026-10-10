@@ -114,6 +114,177 @@ namespace TODOLISTAPI.Controllers
 
 
         // ============================================================
+        // PERSONAL CONTACTS
+        // GET: api/User/contacts
+        // POST: api/User/contacts
+        // Each contact belongs only to the authenticated user.
+        // ============================================================
+        [HttpGet("contacts")]
+        public async Task<IActionResult> GetPersonalContacts()
+        {
+            if (!TryGetUserId(out int userId))
+            {
+                return Unauthorized(new
+                {
+                    success = false,
+                    message = "Invalid or expired token."
+                });
+            }
+
+            try
+            {
+                var contacts = await _context.PersonalContacts
+                    .AsNoTracking()
+                    .Where(contact => contact.UserId == userId)
+                    .OrderBy(contact => contact.Name)
+                    .Select(contact => new
+                    {
+                        id = contact.Id,
+                        name = contact.Name,
+                        phone = contact.Phone,
+                        addedAt = contact.AddedAt
+                    })
+                    .ToListAsync();
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Contacts loaded successfully.",
+                    data = contacts
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("GetPersonalContacts Error: " + ex.Message);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "Failed to load contacts."
+                });
+            }
+        }
+
+        [HttpPost("contacts")]
+        public async Task<IActionResult> AddPersonalContact(
+            [FromBody] PersonalContactRequest? request)
+        {
+            if (!TryGetUserId(out int userId))
+            {
+                return Unauthorized(new
+                {
+                    success = false,
+                    message = "Invalid or expired token."
+                });
+            }
+
+            if (request == null)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Request body is required."
+                });
+            }
+
+            var name = request.Name?.Trim();
+            var phone = request.Phone?.Trim();
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Contact name is required."
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(phone))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Phone number is required."
+                });
+            }
+
+            if (name.Length > 150)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Contact name must be 150 characters or fewer."
+                });
+            }
+
+            if (phone.Length > 20)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Phone number must be 20 characters or fewer."
+                });
+            }
+
+            try
+            {
+                var alreadyExists = await _context.PersonalContacts
+                    .AnyAsync(contact =>
+                        contact.UserId == userId && contact.Phone == phone);
+
+                if (alreadyExists)
+                {
+                    return Conflict(new
+                    {
+                        success = false,
+                        message = "A contact with this phone number already exists."
+                    });
+                }
+
+                var personalContact = new PersonalContact
+                {
+                    UserId = userId,
+                    Name = name,
+                    Phone = phone
+                };
+
+                _context.PersonalContacts.Add(personalContact);
+                await _context.SaveChangesAsync();
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "Contact saved successfully.",
+                    data = new
+                    {
+                        id = personalContact.Id,
+                        name = personalContact.Name,
+                        phone = personalContact.Phone,
+                        addedAt = personalContact.AddedAt
+                    }
+                });
+            }
+            catch (DbUpdateException ex)
+            {
+                Console.WriteLine("AddPersonalContact Save Error: " + ex.Message);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "Failed to save contact."
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("AddPersonalContact Error: " + ex.Message);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "Failed to save contact."
+                });
+            }
+        }
+
+
+        // ============================================================
         // GET: api/User/notifications
         // Get notifications for logged-in user
         // ============================================================
@@ -638,6 +809,17 @@ namespace TODOLISTAPI.Controllers
                 });
             }
         }
+    }
+
+
+    // ================================================================
+    // DTO: Create a saved personal contact
+    // ================================================================
+    public class PersonalContactRequest
+    {
+        public string? Name { get; set; }
+
+        public string? Phone { get; set; }
     }
 
 
