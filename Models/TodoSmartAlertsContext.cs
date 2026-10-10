@@ -23,6 +23,8 @@ public partial class TodoSmartAlertsContext : DbContext
 
     public virtual DbSet<Notification> Notifications { get; set; }
 
+    public virtual DbSet<PersonalContact> PersonalContacts { get; set; }
+
     public virtual DbSet<SnoozeLog> SnoozeLogs { get; set; }
 
     public virtual DbSet<Task> Tasks { get; set; }
@@ -38,8 +40,23 @@ public partial class TodoSmartAlertsContext : DbContext
     public virtual DbSet<UserSetting> UserSettings { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-        => optionsBuilder.UseSqlServer("Server=RANAG\\SQLEXPRESS;Database=TodoSmartAlerts;Trusted_Connection=True;Encrypt=False;");
+    {
+        // Program.cs configures the provider from ConnectionStrings:DefaultConnection.
+        // Keep a non-hardcoded environment-variable fallback for design-time tools,
+        // and never override provider options supplied by dependency injection.
+        if (optionsBuilder.IsConfigured)
+        {
+            return;
+        }
+
+        var connectionString = Environment.GetEnvironmentVariable(
+            "ConnectionStrings__DefaultConnection");
+
+        if (!string.IsNullOrWhiteSpace(connectionString))
+        {
+            optionsBuilder.UseSqlServer(connectionString);
+        }
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -272,6 +289,36 @@ public partial class TodoSmartAlertsContext : DbContext
             entity.Property(e => e.PhoneNumber)
                 .HasMaxLength(20)
                 .IsUnicode(false);
+        });
+
+        modelBuilder.Entity<PersonalContact>(entity =>
+        {
+            entity.HasKey(e => e.Id)
+                .HasName("PK_PersonalContacts");
+
+            entity.ToTable("PersonalContacts");
+
+            entity.HasIndex(e => new { e.UserId, e.Phone })
+                .IsUnique()
+                .HasDatabaseName("UX_PersonalContacts_UserId_Phone");
+
+            entity.Property(e => e.AddedAt)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime");
+
+            entity.Property(e => e.Name)
+                .HasMaxLength(150)
+                .IsUnicode(false);
+
+            entity.Property(e => e.Phone)
+                .HasMaxLength(20)
+                .IsUnicode(false);
+
+            entity.HasOne(d => d.User)
+                .WithMany(p => p.PersonalContacts)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_PersonalContacts_User");
         });
 
         modelBuilder.Entity<UserLocation>(entity =>

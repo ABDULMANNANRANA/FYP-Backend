@@ -940,7 +940,8 @@
             "nullable": true
           },
           "isTimeBased": {
-            "type": "boolean"
+            "type": "boolean",
+            "nullable": true
           },
           "groupId": {
             "type": "integer",

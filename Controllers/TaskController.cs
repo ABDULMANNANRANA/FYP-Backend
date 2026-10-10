@@ -631,7 +631,14 @@ namespace TODOLISTAPI.Controllers
                     return Forbid();
                 }
 
-                // A Location Based task is one that carries a saved place.
+                // A time-based task must have a saved due time. This also
+                // normalizes older/inconsistent rows that were marked time-based
+                // in the database but have no DueTime (date-only tasks).
+                bool isTimeBased =
+                    task.IsTimeBased &&
+                    task.DueTime.HasValue;
+
+                // A Location Based task carries a saved place.
                 bool hasPlace =
                     task.Latitude != null &&
                     task.Longitude != null;
@@ -646,7 +653,7 @@ namespace TODOLISTAPI.Controllers
                         title = task.Title,
                         description = task.Description,
 
-                        isTimeBased = task.IsTimeBased,
+                        isTimeBased = isTimeBased,
                         isLocationBased = hasPlace,
 
                         isCompleted =
@@ -1136,12 +1143,8 @@ namespace TODOLISTAPI.Controllers
         //
         // History Screen API
         //
-        // Returns three separate task lists:
-        //
-        // 1. Pending
-        // 2. Done
-        // 3. Upcoming / Today
-        //
+        // Returns completed (Done) tasks only. Pending, snoozed, upcoming,
+        // and cancelled tasks are never included in this history response.
         // Only returns tasks belonging to the logged-in user.
         //
         // Filters:
@@ -1174,12 +1177,10 @@ namespace TODOLISTAPI.Controllers
                     });
                 }
 
-                var today = DateOnly.FromDateTime(DateTime.Today);
-
                 // ========================================================
                 // BASE QUERY
                 //
-                // Only tasks belonging to logged-in user.
+                // Only completed tasks belonging to the logged-in user.
                 //
                 // EACH HISTORY TAB RETURNS ONLY ITS OWN TASK TYPE:
                 //
@@ -1237,40 +1238,6 @@ namespace TODOLISTAPI.Controllers
                 }
 
                 // ========================================================
-                // PENDING TASKS
-                //
-                // Pending + Snoozed
-                // ========================================================
-                var pendingTasks = await baseQuery
-                    .Where(t =>
-                        t.Status == "Pending" ||
-                        t.Status == "Snoozed")
-                    .OrderBy(t => t.DueDate)
-                    .ThenBy(t => t.DueTime)
-                    .Select(t => new
-                    {
-                        id = t.Id,
-                        title = t.Title,
-                        description = t.Description,
-                        dueDate = t.DueDate,
-                        dueTime = t.DueTime,
-                        isTimeBased = t.IsTimeBased,
-                        status = t.Status,
-                        isCompleted = false,
-                        groupId = t.GroupId,
-
-                        isLocationBased =
-                            t.Latitude != null &&
-                            t.Longitude != null,
-
-                        latitude = t.Latitude,
-                        longitude = t.Longitude,
-                        geofenceRadiusMeters = t.GeofenceRadiusMeters,
-                        geofenceEnabled = t.GeofenceEnabled
-                    })
-                    .ToListAsync();
-
-                // ========================================================
                 // DONE TASKS
                 // ========================================================
                 var doneTasks = await baseQuery
@@ -1302,68 +1269,27 @@ namespace TODOLISTAPI.Controllers
                     .ToListAsync();
 
                 // ========================================================
-                // UPCOMING / TODAY TASKS
-                //
-                // Incomplete tasks whose due date is today or later.
-                //
-                // Example:
-                // Today      -> included
-                // Tomorrow   -> included
-                // Next week  -> included
-                //
-                // Past tasks are not included here.
-                // ========================================================
-                var upcomingTasks = await baseQuery
-                    .Where(t =>
-                        t.Status != "Done" &&
-                        t.Status != "Cancelled" &&
-                        t.DueDate != null &&
-                        t.DueDate >= today)
-                    .OrderBy(t => t.DueDate)
-                    .ThenBy(t => t.DueTime)
-                    .Select(t => new
-                    {
-                        id = t.Id,
-                        title = t.Title,
-                        description = t.Description,
-                        dueDate = t.DueDate,
-                        dueTime = t.DueTime,
-                        isTimeBased = t.IsTimeBased,
-                        status = t.Status,
-                        isCompleted = false,
-                        groupId = t.GroupId,
-
-                        isLocationBased =
-                            t.Latitude != null &&
-                            t.Longitude != null,
-
-                        latitude = t.Latitude,
-                        longitude = t.Longitude,
-                        geofenceRadiusMeters = t.GeofenceRadiusMeters,
-                        geofenceEnabled = t.GeofenceEnabled
-                    })
-                    .ToListAsync();
-
-                // ========================================================
                 // RESPONSE
                 // ========================================================
                 return Ok(new
                 {
                     success = true,
-                    message = "Task history fetched successfully.",
+                    message = "Completed task history fetched successfully.",
 
+                    // Keep the existing response shape for older clients,
+                    // but never return incomplete tasks from history.
                     data = new
                     {
-                        pending = pendingTasks,
+                        pending = Array.Empty<object>(),
                         done = doneTasks,
-                        upcoming = upcomingTasks
+                        upcoming = Array.Empty<object>()
                     },
 
                     counts = new
                     {
-                        pending = pendingTasks.Count,
+                        pending = 0,
                         done = doneTasks.Count,
-                        upcoming = upcomingTasks.Count
+                        upcoming = 0
                     }
                 });
             }

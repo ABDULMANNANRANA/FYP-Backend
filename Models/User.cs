@@ -39,6 +39,8 @@ public partial class User
 
     public virtual ICollection<Notification> NotificationUsers { get; set; } = new List<Notification>();
 
+    public virtual ICollection<PersonalContact> PersonalContacts { get; set; } = new List<PersonalContact>();
+
     public virtual ICollection<SnoozeLog> SnoozeLogs { get; set; } = new List<SnoozeLog>();
 
     public virtual ICollection<Task> TaskAssignedToNavigations { get; set; } = new List<Task>();

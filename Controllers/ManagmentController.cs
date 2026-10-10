@@ -247,6 +247,81 @@ namespace TODOLISTAPI.Controllers
                     });
                 }
 
+                // The schedule must be explicit. A time-based task always has
+                // both a date and time; a non-time-based task has a date only.
+                if (!model.IsTimeBased.HasValue)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Select either a time-based or non-time-based schedule."
+                    });
+                }
+
+                if (!model.DueDate.HasValue)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "DueDate is required for a new task."
+                    });
+                }
+
+                if (model.IsTimeBased.Value && !model.DueTime.HasValue)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "DueTime is required for a time-based task."
+                    });
+                }
+
+                if (!model.IsTimeBased.Value && model.DueTime.HasValue)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "DueTime must be empty for a non-time-based task."
+                    });
+                }
+
+                // Map coordinates must be supplied as a valid pair.
+                if (model.Latitude.HasValue != model.Longitude.HasValue)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Latitude and Longitude must be supplied together."
+                    });
+                }
+
+                if (model.Latitude is < -90 or > 90)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Latitude must be between -90 and 90."
+                    });
+                }
+
+                if (model.Longitude is < -180 or > 180)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Longitude must be between -180 and 180."
+                    });
+                }
+
+                if (model.GeofenceRadiusMeters is <= 0)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "GeofenceRadiusMeters must be greater than zero."
+                    });
+                }
+
                 // ----------------------------------------------------
                 // Get logged-in user
                 // ----------------------------------------------------
@@ -278,11 +353,10 @@ namespace TODOLISTAPI.Controllers
                 }
 
                 // ----------------------------------------------------
-                // If task is not time-based, remove DueTime
+                // Normalize schedule values before persistence
                 // ----------------------------------------------------
-                TimeOnly? dueTime = model.IsTimeBased
-                    ? model.DueTime
-                    : null;
+                var isTimeBased = model.IsTimeBased.Value;
+                TimeOnly? dueTime = isTimeBased ? model.DueTime : null;
 
                 // ----------------------------------------------------
                 // Create task
@@ -292,7 +366,7 @@ namespace TODOLISTAPI.Controllers
                     Title = model.Title.Trim(),
                     Description = model.Description.Trim(),
 
-                    IsTimeBased = model.IsTimeBased,
+                    IsTimeBased = isTimeBased,
 
                     DueDate = model.DueDate,
                     DueTime = dueTime,
@@ -383,6 +457,10 @@ namespace TODOLISTAPI.Controllers
                         dueDate = task.DueDate,
                         dueTime = task.DueTime,
                         isTimeBased = task.IsTimeBased,
+                        latitude = task.Latitude,
+                        longitude = task.Longitude,
+                        geofenceRadiusMeters = task.GeofenceRadiusMeters,
+                        geofenceEnabled = task.GeofenceEnabled,
                         groupId = task.GroupId,
                         status = task.Status,
                         createdBy = task.CreatedBy,
@@ -778,6 +856,18 @@ namespace TODOLISTAPI.Controllers
                     });
                 }
 
+                // Completed tasks must not be forwarded, even if an older
+                // client still tries to call this endpoint directly.
+                if (string.Equals(task.Status, "Done", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(task.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Completed tasks cannot be forwarded."
+                    });
+                }
+
                 using var transaction =
                     await _context.Database.BeginTransactionAsync();
 
@@ -1002,17 +1092,16 @@ namespace TODOLISTAPI.Controllers
 
         public TimeOnly? DueTime { get; set; }
 
-        public bool IsTimeBased { get; set; }
+        // Nullable so the API can reject requests that did not choose a mode.
+        public bool? IsTimeBased { get; set; }
 
         public int? GroupId { get; set; }
 
         // ------------------------------------------------------------
-        // LOCATION BASED
+        // OPTIONAL MAP / GEOFENCE DATA
         //
-        // The place the task was created at, captured from the device GPS.
-        // A Location Based task has no date and no time - the place is its
-        // trigger. All four are optional: a task with no coordinates simply
-        // never raises a place reminder.
+        // A task may have an arrival reminder as well as its selected date
+        // schedule. Tasks without coordinates do not raise a place reminder.
         // ------------------------------------------------------------
         public decimal? Latitude { get; set; }
 

@@ -6,3 +6,7 @@
 Scaffold-DbContext "Server=RANAG\SQLEXPRESS;Database=TodoSmartAlerts;Trusted_Connection=True;Encrypt=False;" Microsoft.EntityFrameworkCore.SqlServer -OutputDir Models -Force
 
 
+Scaffold-DbContext "Server=RANAG\SQLEXPRESS;Database=TodoSmartAlerts;Trusted_Connection=True;Encrypt=False;" Microsoft.EntityFrameworkCore.SqlServer -OutputDir Models
+
+
+dotnet ef dbcontext scaffold "Server=RANAG\SQLEXPRESS;Database=TodoSmartAlerts;Trusted_Connection=True;Encrypt=False;" Microsoft.EntityFrameworkCore.SqlServer --output-dir Models --force

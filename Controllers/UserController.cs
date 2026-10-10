@@ -56,6 +56,7 @@ namespace TODOLISTAPI.Controllers
                     .Select(g => new
                     {
                         id = g.Id,
+                        groupId = g.Id,
                         name = g.Name,
                         createdBy = g.CreatedBy,
                         createdAt = g.CreatedAt,
