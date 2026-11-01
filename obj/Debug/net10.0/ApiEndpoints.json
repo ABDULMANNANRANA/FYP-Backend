@@ -468,6 +468,32 @@
   },
   {
     "ContainingType": "TODOLISTAPI.Controllers.UserController",
+    "Method": "GetPersonalContacts",
+    "RelativePath": "api/User/contacts",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "TODOLISTAPI.Controllers.UserController",
+    "Method": "AddPersonalContact",
+    "RelativePath": "api/User/contacts",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "request",
+        "Type": "TODOLISTAPI.Controllers.PersonalContactRequest",
+        "IsRequired": false
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "TODOLISTAPI.Controllers.UserController",
     "Method": "GetGroups",
     "RelativePath": "api/User/groups",
     "HttpMethod": "GET",

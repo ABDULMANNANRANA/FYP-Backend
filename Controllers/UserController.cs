@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using System.Data.Common;
 using System.Security.Claims;
 using TODOLISTAPI.Models;
 
@@ -155,7 +157,20 @@ namespace TODOLISTAPI.Controllers
             }
             catch (Exception ex)
             {
+                var sqlMsg = GetSqlErrorMessage(ex);
                 Console.WriteLine("GetPersonalContacts Error: " + ex.Message);
+
+                if (!string.IsNullOrWhiteSpace(sqlMsg) &&
+                    sqlMsg.Contains("PersonalContacts", StringComparison.OrdinalIgnoreCase) &&
+                    sqlMsg.Contains("Invalid object name", StringComparison.OrdinalIgnoreCase))
+                {
+                    return StatusCode(500, new
+                    {
+                        success = false,
+                        message = "The PersonalContacts table is missing from the database. Run the EF Core migration (Add-Migration AddPersonalContacts followed by Update-Database) or execute the CREATE TABLE SQL script."
+                    });
+                }
+
                 return StatusCode(500, new
                 {
                     success = false,
@@ -244,7 +259,10 @@ namespace TODOLISTAPI.Controllers
                 {
                     UserId = userId,
                     Name = name,
-                    Phone = phone
+                    Phone = phone,
+                    // Set AddedAt client-side as a belt-and-braces fallback
+                    // in case the DEFAULT (getdate()) is somehow missing.
+                    AddedAt = DateTime.Now
                 };
 
                 _context.PersonalContacts.Add(personalContact);
@@ -263,24 +281,122 @@ namespace TODOLISTAPI.Controllers
                     }
                 });
             }
-            catch (DbUpdateException ex)
+            catch (DbUpdateException dbEx)
             {
-                Console.WriteLine("AddPersonalContact Save Error: " + ex.Message);
+                // Walk the inner-exception chain looking for a SqlException
+                // so we can report a useful, actionable error to the client.
+                var sqlMessage = GetSqlErrorMessage(dbEx);
+
+                if (!string.IsNullOrWhiteSpace(sqlMessage))
+                {
+                    Console.WriteLine("AddPersonalContact SQL Error: " + sqlMessage);
+
+                    if (sqlMessage.Contains("PersonalContacts", StringComparison.OrdinalIgnoreCase) &&
+                        (sqlMessage.Contains("Invalid object name", StringComparison.OrdinalIgnoreCase) ||
+                         sqlMessage.Contains("invalid object name", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        return StatusCode(500, new
+                        {
+                            success = false,
+                            message = "The PersonalContacts table is missing from the database. Run the EF Core migration (Add-Migration AddPersonalContacts followed by Update-Database) or execute the CREATE TABLE SQL script included with this fix."
+                        });
+                    }
+
+                    if (sqlMessage.Contains("UX_PersonalContacts_UserId_Phone", StringComparison.OrdinalIgnoreCase) ||
+                        (sqlMessage.Contains("duplicate", StringComparison.OrdinalIgnoreCase) &&
+                         sqlMessage.Contains("PersonalContacts", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        return Conflict(new
+                        {
+                            success = false,
+                            message = "A contact with this phone number already exists."
+                        });
+                    }
+                }
+
+                Console.WriteLine("AddPersonalContact DbUpdate Error: " + dbEx.Message);
+                if (dbEx.InnerException != null)
+                {
+                    Console.WriteLine("Inner: " + dbEx.InnerException.Message);
+                }
+
                 return StatusCode(500, new
                 {
                     success = false,
-                    message = "Failed to save contact."
+                    message = "Failed to save contact. " + (sqlMessage ?? dbEx.Message)
+                });
+            }
+            catch (SqlException sqlEx)
+            {
+                Console.WriteLine("AddPersonalContact SqlException: " + sqlEx.Message);
+
+                if (sqlEx.Message.Contains("PersonalContacts", StringComparison.OrdinalIgnoreCase) &&
+                    sqlEx.Message.Contains("Invalid object name", StringComparison.OrdinalIgnoreCase))
+                {
+                    //internal error 500
+                    return StatusCode(500, new
+                    {
+                        success = false,
+                        message = "The PersonalContacts table is missing from the database. Run the EF Core migration (Add-Migration AddPersonalContacts followed by Update-Database) or execute the CREATE TABLE SQL script."
+                    });
+                }
+
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "Failed to save contact: " + sqlEx.Message
                 });
             }
             catch (Exception ex)
             {
+                var sqlMsg = GetSqlErrorMessage(ex);
                 Console.WriteLine("AddPersonalContact Error: " + ex.Message);
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine("Inner: " + ex.InnerException.Message);
+                }
+
+                // Same missing-table detection for any other exception path.
+                if (!string.IsNullOrWhiteSpace(sqlMsg) &&
+                    sqlMsg.Contains("PersonalContacts", StringComparison.OrdinalIgnoreCase) &&
+                    sqlMsg.Contains("Invalid object name", StringComparison.OrdinalIgnoreCase))
+                {
+                    return StatusCode(500, new
+                    {
+                        success = false,
+                        message = "The PersonalContacts table is missing from the database. Run the EF Core migration (Add-Migration AddPersonalContacts followed by Update-Database) or execute the CREATE TABLE SQL script."
+                    });
+                }
+
                 return StatusCode(500, new
                 {
                     success = false,
                     message = "Failed to save contact."
                 });
             }
+        }
+
+        /// <summary>
+        /// Walk the inner-exception chain and extract the first SqlException
+        /// message, if any. This lets us detect "Invalid object name" etc.
+        /// regardless of how EF wraps the exception.
+        /// </summary>
+        private static string? GetSqlErrorMessage(Exception? ex)
+        {
+            var current = ex;
+            while (current != null)
+            {
+                if (current is SqlException sqlEx)
+                {
+                    return sqlEx.Message;
+                }
+                if (current is DbException dbEx)
+                {
+                    return dbEx.Message;
+                }
+                current = current.InnerException;
+            }
+            return null;
         }
 
 
