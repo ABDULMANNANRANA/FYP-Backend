@@ -22,591 +22,896 @@ namespace TODOLISTAPI.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("TODOLISTAPI.Models.ForwardedTask", b =>
-            {
-                b.Property<int>("Id")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("int");
-
-                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                b.Property<DateTime>("ForwardedAt")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("datetime")
-                    .HasDefaultValueSql("(getdate())");
-
-                b.Property<int>("ForwardedBy")
-                    .HasColumnType("int");
-
-                b.Property<int>("ForwardedTo")
-                    .HasColumnType("int");
-
-                b.Property<int>("OriginalTaskId")
-                    .HasColumnType("int");
-
-                b.HasKey("Id")
-                    .HasName("PK__Forwarde__3214EC075A61EDB1");
-
-                b.HasIndex("ForwardedBy");
-
-                b.HasIndex("ForwardedTo");
-
-                b.HasIndex("OriginalTaskId");
-
-                b.ToTable("ForwardedTasks");
-            });
-
-            modelBuilder.Entity("TODOLISTAPI.Models.GroupMember", b =>
-            {
-                b.Property<int>("Id")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("int");
-
-                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                b.Property<DateTime>("AddedAt")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("datetime")
-                    .HasDefaultValueSql("(getdate())");
-
-                b.Property<int>("GroupId")
-                    .HasColumnType("int");
-
-                b.Property<string>("Name")
-                    .HasMaxLength(150)
-                    .IsUnicode(false)
-                    .HasColumnType("varchar(150)");
-
-                b.Property<string>("Phone")
-                    .HasMaxLength(20)
-                    .IsUnicode(false)
-                    .HasColumnType("varchar(20)");
-
-                b.Property<string>("Role")
-                    .IsRequired()
-                    .ValueGeneratedOnAdd()
-                    .HasMaxLength(10)
-                    .IsUnicode(false)
-                    .HasColumnType("varchar(10)")
-                    .HasDefaultValue("Member");
-
-                b.Property<int?>("UserId")
-                    .HasColumnType("int");
-
-                b.HasKey("Id")
-                    .HasName("PK__GroupMem__3214EC0784E9E556");
-
-                b.HasIndex("GroupId");
-
-                b.HasIndex("UserId");
-
-                b.ToTable("GroupMembers");
-            });
-
-            modelBuilder.Entity("TODOLISTAPI.Models.PersonalContact", b =>
-            {
-                b.Property<int>("Id")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("int");
-
-                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                b.Property<DateTime>("AddedAt")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("datetime")
-                    .HasDefaultValueSql("(getdate())");
-
-                b.Property<string>("Name")
-                    .IsRequired()
-                    .HasMaxLength(150)
-                    .IsUnicode(false)
-                    .HasColumnType("varchar(150)");
-
-                b.Property<string>("Phone")
-                    .IsRequired()
-                    .HasMaxLength(20)
-                    .IsUnicode(false)
-                    .HasColumnType("varchar(20)");
-
-                b.Property<int>("UserId")
-                    .HasColumnType("int");
-
-                b.HasKey("Id")
-                    .HasName("PK_PersonalContacts");
-
-                b.HasIndex(new[] { "UserId", "Phone" }, "UX_PersonalContacts_UserId_Phone")
-                    .IsUnique();
-
-                b.ToTable("PersonalContacts");
-            });
-
-            modelBuilder.Entity("TODOLISTAPI.Models.GroupsUser", b =>
-            {
-                b.Property<int>("Id")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("int");
-
-                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                b.Property<DateTime>("CreatedAt")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("datetime")
-                    .HasDefaultValueSql("(getdate())");
-
-                b.Property<int>("CreatedBy")
-                    .HasColumnType("int");
-
-                b.Property<string>("Name")
-                    .IsRequired()
-                    .HasMaxLength(150)
-                    .IsUnicode(false)
-                    .HasColumnType("varchar(150)");
-
-                b.HasKey("Id")
-                    .HasName("PK__GroupsUs__3214EC0767F16719");
-
-                b.HasIndex("CreatedBy");
-
-                b.ToTable("GroupsUser", (string)null);
-            });
-
-            modelBuilder.Entity("TODOLISTAPI.Models.Notification", b =>
-            {
-                b.Property<int>("Id")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("int");
-
-                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                b.Property<bool>("IsRead")
-                    .HasColumnType("bit");
-
-                b.Property<string>("Message")
-                    .IsUnicode(false)
-                    .HasColumnType("varchar(max)");
-
-                b.Property<DateTime>("SentAt")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("datetime")
-                    .HasDefaultValueSql("(getdate())");
-
-                b.Property<int>("TaskId")
-                    .HasColumnType("int");
-
-                b.Property<int>("UserId")
-                    .HasColumnType("int");
-
-                b.HasKey("Id")
-                    .HasName("PK__Notifica__3214EC07EB8250D3");
-
-                b.HasIndex("TaskId");
-
-                b.HasIndex("UserId");
-
-                b.ToTable("Notifications");
-            });
-
-            modelBuilder.Entity("TODOLISTAPI.Models.SnoozeLog", b =>
-            {
-                b.Property<int>("Id")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("int");
-
-                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                b.Property<DateTime>("SnoozedAt")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("datetime")
-                    .HasDefaultValueSql("(getdate())");
-
-                b.Property<int>("TaskId")
-                    .HasColumnType("int");
-
-                b.Property<int>("UserId")
-                    .HasColumnType("int");
-
-                b.Property<DateTime>("WakeAt")
-                    .HasColumnType("datetime");
-
-                b.HasKey("Id")
-                    .HasName("PK__SnoozeLo__3214EC07D8C584B4");
-
-                b.HasIndex("TaskId");
-
-                b.HasIndex("UserId");
-
-                b.ToTable("SnoozeLogs");
-            });
-
-            modelBuilder.Entity("TODOLISTAPI.Models.Task", b =>
-            {
-                b.Property<int>("Id")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("int");
-
-                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                b.Property<int?>("AssignedTo")
-                    .HasColumnType("int");
-
-                b.Property<DateTime>("CreatedAt")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("datetime")
-                    .HasDefaultValueSql("(getdate())");
-
-                b.Property<int>("CreatedBy")
-                    .HasColumnType("int");
-
-                b.Property<string>("Description")
-                    .IsUnicode(false)
-                    .HasColumnType("varchar(max)");
-
-                b.Property<DateOnly?>("DueDate")
-                    .HasColumnType("date");
-
-                b.Property<TimeOnly?>("DueTime")
-                    .HasColumnType("time");
-
-                b.Property<bool>("GeofenceEnabled")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("bit")
-                    .HasDefaultValue(true);
-
-                b.Property<int>("GeofenceRadiusMeters")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("int")
-                    .HasDefaultValue(200);
-
-                b.Property<decimal?>("Latitude")
-                    .HasColumnType("decimal(10, 7)");
-
-                b.Property<decimal?>("Longitude")
-                    .HasColumnType("decimal(10, 7)");
-
-                b.Property<int?>("GroupId")
-                    .HasColumnType("int");
-
-                b.Property<bool>("IsTimeBased")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("bit")
-                    .HasDefaultValue(true);
-
-                b.Property<string>("Status")
-                    .IsRequired()
-                    .ValueGeneratedOnAdd()
-                    .HasMaxLength(20)
-                    .IsUnicode(false)
-                    .HasColumnType("varchar(20)")
-                    .HasDefaultValue("Pending");
-
-                b.Property<string>("Title")
-                    .IsRequired()
-                    .HasMaxLength(300)
-                    .IsUnicode(false)
-                    .HasColumnType("varchar(300)");
-
-                b.Property<DateTime>("UpdatedAt")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("datetime")
-                    .HasDefaultValueSql("(getdate())");
-
-                b.HasKey("Id")
-                    .HasName("PK__Tasks__3214EC07FA8CA435");
-
-                b.HasIndex("AssignedTo");
-
-                b.HasIndex("CreatedBy");
-
-                b.HasIndex("GroupId");
-
-                b.ToTable("Tasks", t =>
+            modelBuilder.Entity("TODOLISTAPI.Models.ContactRequest", b =>
                 {
-                    t.HasTrigger("trg_Tasks_UpdatedAt");
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("LowerUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RecipientUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SenderAlias")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<int>("SenderUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UpperUserId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UpperUserId");
+
+                    b.HasIndex("LowerUserId", "UpperUserId")
+                        .IsUnique();
+
+                    b.HasIndex("RecipientUserId", "Status");
+
+                    b.HasIndex("SenderUserId", "Status");
+
+                    b.ToTable("ContactRequests", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ContactRequests_Pair", "[LowerUserId] < [UpperUserId] AND (([SenderUserId] = [LowerUserId] AND [RecipientUserId] = [UpperUserId]) OR ([SenderUserId] = [UpperUserId] AND [RecipientUserId] = [LowerUserId]))");
+
+                            t.HasCheckConstraint("CK_ContactRequests_Status", "[Status] IN ('Pending','Accepted','Rejected','Cancelled','Removed')");
+                        });
                 });
 
-                b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
-            });
-
-            modelBuilder.Entity("TODOLISTAPI.Models.User", b =>
-            {
-                b.Property<int>("Id")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("int");
-
-                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                b.Property<DateTime?>("CreatedAt")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("datetime")
-                    .HasDefaultValueSql("(getdate())");
-
-                b.Property<string>("Email")
-                    .IsRequired()
-                    .HasMaxLength(200)
-                    .IsUnicode(false)
-                    .HasColumnType("varchar(200)");
-
-                b.Property<string>("FirstName")
-                    .IsRequired()
-                    .HasMaxLength(100)
-                    .IsUnicode(false)
-                    .HasColumnType("varchar(100)");
-
-                b.Property<bool?>("IsActive")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("bit")
-                    .HasDefaultValue(true);
-
-                b.Property<string>("LastName")
-                    .IsRequired()
-                    .HasMaxLength(100)
-                    .IsUnicode(false)
-                    .HasColumnType("varchar(100)");
-
-                b.Property<string>("Password")
-                    .IsRequired()
-                    .HasMaxLength(255)
-                    .IsUnicode(false)
-                    .HasColumnType("varchar(255)");
-
-                b.Property<string>("PhoneNumber")
-                    .HasMaxLength(20)
-                    .IsUnicode(false)
-                    .HasColumnType("varchar(20)");
-
-                b.HasKey("Id")
-                    .HasName("PK__Users__3214EC070A53C32D");
-
-                b.HasIndex(new[] { "Email" }, "UQ__Users__A9D10534AF9C5684")
-                    .IsUnique();
-
-                b.ToTable("Users");
-            });
-
-            modelBuilder.Entity("TODOLISTAPI.Models.UserSetting", b =>
-            {
-                b.Property<int>("Id")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("int");
-
-                SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                b.Property<bool>("DarkModeEnabled")
-                    .HasColumnType("bit");
-
-                b.Property<bool>("NotificationEnabled")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("bit")
-                    .HasDefaultValue(true);
-
-                b.Property<int>("SnoozeMinutes")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("int")
-                    .HasDefaultValue(5);
-
-                b.Property<DateTime>("UpdatedAt")
-                    .ValueGeneratedOnAdd()
-                    .HasColumnType("datetime")
-                    .HasDefaultValueSql("(getdate())");
-
-                b.Property<int>("UserId")
-                    .HasColumnType("int");
-
-                b.HasKey("Id")
-                    .HasName("PK__UserSett__3214EC070E164229");
-
-                b.HasIndex(new[] { "UserId" }, "UQ__UserSett__1788CC4D7B6F48F8")
-                    .IsUnique();
-
-                b.ToTable("UserSettings");
-            });
-
             modelBuilder.Entity("TODOLISTAPI.Models.ForwardedTask", b =>
-            {
-                b.HasOne("TODOLISTAPI.Models.User", "ForwardedByNavigation")
-                    .WithMany("ForwardedTaskForwardedByNavigations")
-                    .HasForeignKey("ForwardedBy")
-                    .IsRequired()
-                    .HasConstraintName("FK_Forwarded_By");
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
 
-                b.HasOne("TODOLISTAPI.Models.User", "ForwardedToNavigation")
-                    .WithMany("ForwardedTaskForwardedToNavigations")
-                    .HasForeignKey("ForwardedTo")
-                    .IsRequired()
-                    .HasConstraintName("FK_Forwarded_To");
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                b.HasOne("TODOLISTAPI.Models.Task", "OriginalTask")
-                    .WithMany("ForwardedTasks")
-                    .HasForeignKey("OriginalTaskId")
-                    .OnDelete(DeleteBehavior.Cascade)
-                    .IsRequired()
-                    .HasConstraintName("FK_Forwarded_Task");
+                    b.Property<DateTime>("ForwardedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime")
+                        .HasDefaultValueSql("(getdate())");
 
-                b.Navigation("ForwardedByNavigation");
+                    b.Property<int>("ForwardedBy")
+                        .HasColumnType("int");
 
-                b.Navigation("ForwardedToNavigation");
+                    b.Property<int>("ForwardedTo")
+                        .HasColumnType("int");
 
-                b.Navigation("OriginalTask");
-            });
+                    b.Property<int>("OriginalTaskId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id")
+                        .HasName("PK__Forwarde__3214EC075A61EDB1");
+
+                    b.HasIndex("ForwardedBy");
+
+                    b.HasIndex("ForwardedTo");
+
+                    b.HasIndex("OriginalTaskId");
+
+                    b.ToTable("ForwardedTasks");
+                });
 
             modelBuilder.Entity("TODOLISTAPI.Models.GroupMember", b =>
-            {
-                b.HasOne("TODOLISTAPI.Models.GroupsUser", "Group")
-                    .WithMany("GroupMembers")
-                    .HasForeignKey("GroupId")
-                    .OnDelete(DeleteBehavior.Cascade)
-                    .IsRequired()
-                    .HasConstraintName("FK_GroupMembers_Group");
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
 
-                b.HasOne("TODOLISTAPI.Models.User", "User")
-                    .WithMany("GroupMembers")
-                    .HasForeignKey("UserId")
-                    .HasConstraintName("FK_GroupMembers_User");
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                b.Navigation("Group");
+                    b.Property<DateTime>("AddedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime")
+                        .HasDefaultValueSql("(getdate())");
 
-                b.Navigation("User");
-            });
+                    b.Property<int>("GroupId")
+                        .HasColumnType("int");
 
-            modelBuilder.Entity("TODOLISTAPI.Models.PersonalContact", b =>
-            {
-                b.HasOne("TODOLISTAPI.Models.User", "User")
-                    .WithMany("PersonalContacts")
-                    .HasForeignKey("UserId")
-                    .OnDelete(DeleteBehavior.Cascade)
-                    .IsRequired()
-                    .HasConstraintName("FK_PersonalContacts_User");
+                    b.Property<string>("Name")
+                        .HasMaxLength(150)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(150)");
 
-                b.Navigation("User");
-            });
+                    b.Property<string>("Phone")
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(10)")
+                        .HasDefaultValue("Member");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id")
+                        .HasName("PK__GroupMem__3214EC0784E9E556");
+
+                    b.HasIndex("GroupId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("GroupMembers");
+                });
 
             modelBuilder.Entity("TODOLISTAPI.Models.GroupsUser", b =>
-            {
-                b.HasOne("TODOLISTAPI.Models.User", "CreatedByNavigation")
-                    .WithMany("GroupsUsers")
-                    .HasForeignKey("CreatedBy")
-                    .IsRequired()
-                    .HasConstraintName("FK_GroupsUser_CreatedBy");
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
 
-                b.Navigation("CreatedByNavigation");
-            });
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime")
+                        .HasDefaultValueSql("(getdate())");
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(150)");
+
+                    b.HasKey("Id")
+                        .HasName("PK__GroupsUs__3214EC0767F16719");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.ToTable("GroupsUser", (string)null);
+                });
 
             modelBuilder.Entity("TODOLISTAPI.Models.Notification", b =>
-            {
-                b.HasOne("TODOLISTAPI.Models.Task", "Task")
-                    .WithMany("Notifications")
-                    .HasForeignKey("TaskId")
-                    .OnDelete(DeleteBehavior.Cascade)
-                    .IsRequired()
-                    .HasConstraintName("FK_Notifications_Task");
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
 
-                b.HasOne("TODOLISTAPI.Models.User", "User")
-                    .WithMany("Notifications")
-                    .HasForeignKey("UserId")
-                    .IsRequired()
-                    .HasConstraintName("FK_Notifications_User");
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                b.Navigation("Task");
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
 
-                b.Navigation("User");
-            });
+                    b.Property<string>("Message")
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(max)");
+
+                    b.Property<int?>("SenderId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("SentAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime")
+                        .HasDefaultValueSql("(getdate())");
+
+                    b.Property<int>("TaskId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Type")
+                        .HasMaxLength(30)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id")
+                        .HasName("PK__Notifica__3214EC07EB8250D3");
+
+                    b.HasIndex("SenderId");
+
+                    b.HasIndex("TaskId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Notifications");
+                });
+
+            modelBuilder.Entity("TODOLISTAPI.Models.PersonalContact", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AddedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime")
+                        .HasDefaultValueSql("(getdate())");
+
+                    b.Property<int?>("ContactUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id")
+                        .HasName("PK_PersonalContacts");
+
+                    b.HasIndex("ContactUserId");
+
+                    b.HasIndex("UserId", "ContactUserId")
+                        .IsUnique()
+                        .HasFilter("[ContactUserId] IS NOT NULL");
+
+                    b.HasIndex("UserId", "Phone")
+                        .IsUnique()
+                        .HasDatabaseName("UX_PersonalContacts_UserId_Phone");
+
+                    b.ToTable("PersonalContacts", (string)null);
+                });
 
             modelBuilder.Entity("TODOLISTAPI.Models.SnoozeLog", b =>
-            {
-                b.HasOne("TODOLISTAPI.Models.Task", "Task")
-                    .WithMany("SnoozeLogs")
-                    .HasForeignKey("TaskId")
-                    .OnDelete(DeleteBehavior.Cascade)
-                    .IsRequired()
-                    .HasConstraintName("FK_Snooze_Task");
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
 
-                b.HasOne("TODOLISTAPI.Models.User", "User")
-                    .WithMany("SnoozeLogs")
-                    .HasForeignKey("UserId")
-                    .IsRequired()
-                    .HasConstraintName("FK_Snooze_User");
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                b.Navigation("Task");
+                    b.Property<DateTime>("SnoozedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime")
+                        .HasDefaultValueSql("(getdate())");
 
-                b.Navigation("User");
-            });
+                    b.Property<int>("TaskId")
+                        .HasColumnType("int");
 
-            modelBuilder.Entity("TODOLISTAPI.Models.Task", b =>
-            {
-                b.HasOne("TODOLISTAPI.Models.User", "AssignedToNavigation")
-                    .WithMany("TaskAssignedToNavigations")
-                    .HasForeignKey("AssignedTo")
-                    .HasConstraintName("FK_Tasks_AssignedTo");
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
 
-                b.HasOne("TODOLISTAPI.Models.User", "CreatedByNavigation")
-                    .WithMany("TaskCreatedByNavigations")
-                    .HasForeignKey("CreatedBy")
-                    .IsRequired()
-                    .HasConstraintName("FK_Tasks_CreatedBy");
+                    b.Property<DateTime>("WakeAt")
+                        .HasColumnType("datetime");
 
-                b.HasOne("TODOLISTAPI.Models.GroupsUser", "Group")
-                    .WithMany("Tasks")
-                    .HasForeignKey("GroupId")
-                    .OnDelete(DeleteBehavior.SetNull)
-                    .HasConstraintName("FK_Tasks_Group");
+                    b.HasKey("Id")
+                        .HasName("PK__SnoozeLo__3214EC07D8C584B4");
 
-                b.Navigation("AssignedToNavigation");
+                    b.HasIndex("TaskId");
 
-                b.Navigation("CreatedByNavigation");
+                    b.HasIndex("UserId");
 
-                b.Navigation("Group");
-            });
-
-            modelBuilder.Entity("TODOLISTAPI.Models.UserSetting", b =>
-            {
-                b.HasOne("TODOLISTAPI.Models.User", "User")
-                    .WithOne("UserSetting")
-                    .HasForeignKey("TODOLISTAPI.Models.UserSetting", "UserId")
-                    .OnDelete(DeleteBehavior.Cascade)
-                    .IsRequired()
-                    .HasConstraintName("FK_UserSettings_User");
-
-                b.Navigation("User");
-            });
-
-            modelBuilder.Entity("TODOLISTAPI.Models.GroupsUser", b =>
-            {
-                b.Navigation("GroupMembers");
-
-                b.Navigation("Tasks");
-            });
+                    b.ToTable("SnoozeLogs");
+                });
 
             modelBuilder.Entity("TODOLISTAPI.Models.Task", b =>
-            {
-                b.Navigation("ForwardedTasks");
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
 
-                b.Navigation("Notifications");
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                b.Navigation("SnoozeLogs");
-            });
+                    b.Property<int?>("AssignedTo")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime")
+                        .HasDefaultValueSql("(getdate())");
+
+                    b.Property<int>("CreatedBy")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(max)");
+
+                    b.Property<DateOnly?>("DueDate")
+                        .HasColumnType("date");
+
+                    b.Property<TimeOnly?>("DueTime")
+                        .HasColumnType("time");
+
+                    b.Property<bool>("GeofenceEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<int>("GeofenceRadiusMeters")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(200);
+
+                    b.Property<int?>("GroupId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsTimeBased")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<decimal?>("Latitude")
+                        .HasColumnType("decimal(10, 7)");
+
+                    b.Property<decimal?>("Longitude")
+                        .HasColumnType("decimal(10, 7)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)")
+                        .HasDefaultValue("Pending");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(300)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime")
+                        .HasDefaultValueSql("(getdate())");
+
+                    b.HasKey("Id")
+                        .HasName("PK__Tasks__3214EC07FA8CA435");
+
+                    b.HasIndex("AssignedTo");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("GroupId");
+
+                    b.ToTable("Tasks", t =>
+                        {
+                            t.HasTrigger("trg_Tasks_UpdatedAt");
+                        });
+
+                    b.HasAnnotation("SqlServer:UseSqlOutputClause", false);
+                });
+
+            modelBuilder.Entity("TODOLISTAPI.Models.TaskMention", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("MentionedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime")
+                        .HasDefaultValueSql("(getdate())");
+
+                    b.Property<int>("MentionedBy")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MentionedUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TaskId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id")
+                        .HasName("PK__TaskMent__3214EC0723C30B6C");
+
+                    b.HasIndex("MentionedBy");
+
+                    b.HasIndex("MentionedUserId");
+
+                    b.HasIndex(new[] { "TaskId", "MentionedUserId" }, "UQ_TaskMention")
+                        .IsUnique();
+
+                    b.ToTable("TaskMentions");
+                });
+
+            modelBuilder.Entity("TODOLISTAPI.Models.TaskResponse", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("RespondedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime")
+                        .HasDefaultValueSql("(getdate())");
+
+                    b.Property<string>("Response")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<int>("TaskId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id")
+                        .HasName("PK__TaskResp__3214EC0715247833");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex(new[] { "TaskId", "UserId" }, "UQ_TaskResponses")
+                        .IsUnique();
+
+                    b.ToTable("TaskResponses");
+                });
 
             modelBuilder.Entity("TODOLISTAPI.Models.User", b =>
-            {
-                b.Navigation("ForwardedTaskForwardedByNavigations");
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
 
-                b.Navigation("ForwardedTaskForwardedToNavigations");
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                b.Navigation("GroupMembers");
+                    b.Property<DateTime?>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime")
+                        .HasDefaultValueSql("(getdate())");
 
-                b.Navigation("GroupsUsers");
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
 
-                b.Navigation("Notifications");
+                    b.Property<string>("FirstName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)");
 
-                b.Navigation("PersonalContacts");
+                    b.Property<bool?>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
-                b.Navigation("SnoozeLogs");
+                    b.Property<double?>("LastLatitude")
+                        .HasColumnType("float");
 
-                b.Navigation("TaskAssignedToNavigations");
+                    b.Property<DateTime?>("LastLocationUpdatedAt")
+                        .HasColumnType("datetime");
 
-                b.Navigation("TaskCreatedByNavigations");
+                    b.Property<double?>("LastLongitude")
+                        .HasColumnType("float");
 
-                b.Navigation("UserSetting");
-            });
+                    b.Property<string>("LastName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("Password")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.HasKey("Id")
+                        .HasName("PK__Users__3214EC070A53C32D");
+
+                    b.HasIndex(new[] { "Email" }, "UQ__Users__A9D10534AF9C5684")
+                        .IsUnique();
+
+                    b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("TODOLISTAPI.Models.UserLocation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal?>("Accuracy")
+                        .HasColumnType("decimal(10, 2)");
+
+                    b.Property<decimal>("Latitude")
+                        .HasColumnType("decimal(10, 7)");
+
+                    b.Property<decimal>("Longitude")
+                        .HasColumnType("decimal(10, 7)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime")
+                        .HasDefaultValueSql("(getdate())");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id")
+                        .HasName("PK__UserLoca__3214EC0747FDD528");
+
+                    b.HasIndex(new[] { "UserId" }, "UQ__UserLoca__1788CC4D56EC433A")
+                        .IsUnique();
+
+                    b.ToTable("UserLocations");
+                });
+
+            modelBuilder.Entity("TODOLISTAPI.Models.UserSetting", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("DarkModeEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("NotificationEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<int>("SnoozeMinutes")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(5);
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime")
+                        .HasDefaultValueSql("(getdate())");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id")
+                        .HasName("PK__UserSett__3214EC070E164229");
+
+                    b.HasIndex(new[] { "UserId" }, "UQ__UserSett__1788CC4D7B6F48F8")
+                        .IsUnique();
+
+                    b.ToTable("UserSettings");
+                });
+
+            modelBuilder.Entity("TODOLISTAPI.Models.ContactRequest", b =>
+                {
+                    b.HasOne("TODOLISTAPI.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("LowerUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("TODOLISTAPI.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("RecipientUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("TODOLISTAPI.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("SenderUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("TODOLISTAPI.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpperUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("TODOLISTAPI.Models.ForwardedTask", b =>
+                {
+                    b.HasOne("TODOLISTAPI.Models.User", "ForwardedByNavigation")
+                        .WithMany("ForwardedTaskForwardedByNavigations")
+                        .HasForeignKey("ForwardedBy")
+                        .IsRequired()
+                        .HasConstraintName("FK_Forwarded_By");
+
+                    b.HasOne("TODOLISTAPI.Models.User", "ForwardedToNavigation")
+                        .WithMany("ForwardedTaskForwardedToNavigations")
+                        .HasForeignKey("ForwardedTo")
+                        .IsRequired()
+                        .HasConstraintName("FK_Forwarded_To");
+
+                    b.HasOne("TODOLISTAPI.Models.Task", "OriginalTask")
+                        .WithMany("ForwardedTasks")
+                        .HasForeignKey("OriginalTaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_Forwarded_Task");
+
+                    b.Navigation("ForwardedByNavigation");
+
+                    b.Navigation("ForwardedToNavigation");
+
+                    b.Navigation("OriginalTask");
+                });
+
+            modelBuilder.Entity("TODOLISTAPI.Models.GroupMember", b =>
+                {
+                    b.HasOne("TODOLISTAPI.Models.GroupsUser", "Group")
+                        .WithMany("GroupMembers")
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_GroupMembers_Group");
+
+                    b.HasOne("TODOLISTAPI.Models.User", "User")
+                        .WithMany("GroupMembers")
+                        .HasForeignKey("UserId")
+                        .HasConstraintName("FK_GroupMembers_User");
+
+                    b.Navigation("Group");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("TODOLISTAPI.Models.GroupsUser", b =>
+                {
+                    b.HasOne("TODOLISTAPI.Models.User", "CreatedByNavigation")
+                        .WithMany("GroupsUsers")
+                        .HasForeignKey("CreatedBy")
+                        .IsRequired()
+                        .HasConstraintName("FK_GroupsUser_CreatedBy");
+
+                    b.Navigation("CreatedByNavigation");
+                });
+
+            modelBuilder.Entity("TODOLISTAPI.Models.Notification", b =>
+                {
+                    b.HasOne("TODOLISTAPI.Models.User", "Sender")
+                        .WithMany("NotificationSenders")
+                        .HasForeignKey("SenderId")
+                        .HasConstraintName("FK_Notifications_Sender");
+
+                    b.HasOne("TODOLISTAPI.Models.Task", "Task")
+                        .WithMany("Notifications")
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_Notifications_Task");
+
+                    b.HasOne("TODOLISTAPI.Models.User", "User")
+                        .WithMany("NotificationUsers")
+                        .HasForeignKey("UserId")
+                        .IsRequired()
+                        .HasConstraintName("FK_Notifications_User");
+
+                    b.Navigation("Sender");
+
+                    b.Navigation("Task");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("TODOLISTAPI.Models.PersonalContact", b =>
+                {
+                    b.HasOne("TODOLISTAPI.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("ContactUserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("TODOLISTAPI.Models.User", "User")
+                        .WithMany("PersonalContacts")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_PersonalContacts_User");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("TODOLISTAPI.Models.SnoozeLog", b =>
+                {
+                    b.HasOne("TODOLISTAPI.Models.Task", "Task")
+                        .WithMany("SnoozeLogs")
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_Snooze_Task");
+
+                    b.HasOne("TODOLISTAPI.Models.User", "User")
+                        .WithMany("SnoozeLogs")
+                        .HasForeignKey("UserId")
+                        .IsRequired()
+                        .HasConstraintName("FK_Snooze_User");
+
+                    b.Navigation("Task");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("TODOLISTAPI.Models.Task", b =>
+                {
+                    b.HasOne("TODOLISTAPI.Models.User", "AssignedToNavigation")
+                        .WithMany("TaskAssignedToNavigations")
+                        .HasForeignKey("AssignedTo")
+                        .HasConstraintName("FK_Tasks_AssignedTo");
+
+                    b.HasOne("TODOLISTAPI.Models.User", "CreatedByNavigation")
+                        .WithMany("TaskCreatedByNavigations")
+                        .HasForeignKey("CreatedBy")
+                        .IsRequired()
+                        .HasConstraintName("FK_Tasks_CreatedBy");
+
+                    b.HasOne("TODOLISTAPI.Models.GroupsUser", "Group")
+                        .WithMany("Tasks")
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("FK_Tasks_Group");
+
+                    b.Navigation("AssignedToNavigation");
+
+                    b.Navigation("CreatedByNavigation");
+
+                    b.Navigation("Group");
+                });
+
+            modelBuilder.Entity("TODOLISTAPI.Models.TaskMention", b =>
+                {
+                    b.HasOne("TODOLISTAPI.Models.User", "MentionedByNavigation")
+                        .WithMany("TaskMentionMentionedByNavigations")
+                        .HasForeignKey("MentionedBy")
+                        .IsRequired()
+                        .HasConstraintName("FK_TaskMentions_MentionedBy");
+
+                    b.HasOne("TODOLISTAPI.Models.User", "MentionedUser")
+                        .WithMany("TaskMentionMentionedUsers")
+                        .HasForeignKey("MentionedUserId")
+                        .IsRequired()
+                        .HasConstraintName("FK_TaskMentions_MentionedUser");
+
+                    b.HasOne("TODOLISTAPI.Models.Task", "Task")
+                        .WithMany("TaskMentions")
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_TaskMentions_Task");
+
+                    b.Navigation("MentionedByNavigation");
+
+                    b.Navigation("MentionedUser");
+
+                    b.Navigation("Task");
+                });
+
+            modelBuilder.Entity("TODOLISTAPI.Models.TaskResponse", b =>
+                {
+                    b.HasOne("TODOLISTAPI.Models.Task", "Task")
+                        .WithMany("TaskResponses")
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_TaskResponses_Task");
+
+                    b.HasOne("TODOLISTAPI.Models.User", "User")
+                        .WithMany("TaskResponses")
+                        .HasForeignKey("UserId")
+                        .IsRequired()
+                        .HasConstraintName("FK_TaskResponses_User");
+
+                    b.Navigation("Task");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("TODOLISTAPI.Models.UserLocation", b =>
+                {
+                    b.HasOne("TODOLISTAPI.Models.User", "User")
+                        .WithOne("UserLocation")
+                        .HasForeignKey("TODOLISTAPI.Models.UserLocation", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_UserLocations_User");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("TODOLISTAPI.Models.UserSetting", b =>
+                {
+                    b.HasOne("TODOLISTAPI.Models.User", "User")
+                        .WithOne("UserSetting")
+                        .HasForeignKey("TODOLISTAPI.Models.UserSetting", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_UserSettings_User");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("TODOLISTAPI.Models.GroupsUser", b =>
+                {
+                    b.Navigation("GroupMembers");
+
+                    b.Navigation("Tasks");
+                });
+
+            modelBuilder.Entity("TODOLISTAPI.Models.Task", b =>
+                {
+                    b.Navigation("ForwardedTasks");
+
+                    b.Navigation("Notifications");
+
+                    b.Navigation("SnoozeLogs");
+
+                    b.Navigation("TaskMentions");
+
+                    b.Navigation("TaskResponses");
+                });
+
+            modelBuilder.Entity("TODOLISTAPI.Models.User", b =>
+                {
+                    b.Navigation("ForwardedTaskForwardedByNavigations");
+
+                    b.Navigation("ForwardedTaskForwardedToNavigations");
+
+                    b.Navigation("GroupMembers");
+
+                    b.Navigation("GroupsUsers");
+
+                    b.Navigation("NotificationSenders");
+
+                    b.Navigation("NotificationUsers");
+
+                    b.Navigation("PersonalContacts");
+
+                    b.Navigation("SnoozeLogs");
+
+                    b.Navigation("TaskAssignedToNavigations");
+
+                    b.Navigation("TaskCreatedByNavigations");
+
+                    b.Navigation("TaskMentionMentionedByNavigations");
+
+                    b.Navigation("TaskMentionMentionedUsers");
+
+                    b.Navigation("TaskResponses");
+
+                    b.Navigation("UserLocation");
+
+                    b.Navigation("UserSetting");
+                });
 #pragma warning restore 612, 618
         }
     }

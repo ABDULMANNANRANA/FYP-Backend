@@ -1,5 +1,31 @@
 [
   {
+    "ContainingType": "TODOLISTAPI.Controllers.AccountController",
+    "Method": "ChangePassword",
+    "RelativePath": "api/Account/change-password",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "request",
+        "Type": "TODOLISTAPI.Controllers.ChangePasswordRequest",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "TODOLISTAPI.Controllers.AccountController",
+    "Method": "Profile",
+    "RelativePath": "api/Account/profile",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
     "ContainingType": "TODOLISTAPI.Controllers.AuthController",
     "Method": "Login",
     "RelativePath": "api/Auth/login",
@@ -140,6 +166,16 @@
         "IsRequired": true
       }
     ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "TODOLISTAPI.Controllers.ManagmentController",
+    "Method": "GetTaskRecipients",
+    "RelativePath": "api/Managment/task-recipients",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
     "ReturnTypes": []
   },
   {
@@ -467,8 +503,97 @@
     "ReturnTypes": []
   },
   {
-    "ContainingType": "TODOLISTAPI.Controllers.UserController",
-    "Method": "GetPersonalContacts",
+    "ContainingType": "TODOLISTAPI.Controllers.ContactsController",
+    "Method": "Send",
+    "RelativePath": "api/User/contact-requests",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "input",
+        "Type": "TODOLISTAPI.Controllers.SendContactRequestDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "TODOLISTAPI.Controllers.ContactsController",
+    "Method": "Pending",
+    "RelativePath": "api/User/contact-requests",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "TODOLISTAPI.Controllers.ContactsController",
+    "Method": "Accept",
+    "RelativePath": "api/User/contact-requests/{id}/accept",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "input",
+        "Type": "TODOLISTAPI.Controllers.ContactRequestActionDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "TODOLISTAPI.Controllers.ContactsController",
+    "Method": "Cancel",
+    "RelativePath": "api/User/contact-requests/{id}/cancel",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "input",
+        "Type": "TODOLISTAPI.Controllers.ContactRequestActionDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "TODOLISTAPI.Controllers.ContactsController",
+    "Method": "Reject",
+    "RelativePath": "api/User/contact-requests/{id}/reject",
+    "HttpMethod": "POST",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
+      },
+      {
+        "Name": "input",
+        "Type": "TODOLISTAPI.Controllers.ContactRequestActionDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "TODOLISTAPI.Controllers.ContactsController",
+    "Method": "Contacts",
     "RelativePath": "api/User/contacts",
     "HttpMethod": "GET",
     "IsController": true,
@@ -477,17 +602,33 @@
     "ReturnTypes": []
   },
   {
-    "ContainingType": "TODOLISTAPI.Controllers.UserController",
-    "Method": "AddPersonalContact",
+    "ContainingType": "TODOLISTAPI.Controllers.ContactsController",
+    "Method": "Send",
     "RelativePath": "api/User/contacts",
     "HttpMethod": "POST",
     "IsController": true,
     "Order": 0,
     "Parameters": [
       {
-        "Name": "request",
-        "Type": "TODOLISTAPI.Controllers.PersonalContactRequest",
-        "IsRequired": false
+        "Name": "input",
+        "Type": "TODOLISTAPI.Controllers.SendContactRequestDto",
+        "IsRequired": true
+      }
+    ],
+    "ReturnTypes": []
+  },
+  {
+    "ContainingType": "TODOLISTAPI.Controllers.ContactsController",
+    "Method": "Delete",
+    "RelativePath": "api/User/contacts/{id}",
+    "HttpMethod": "DELETE",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [
+      {
+        "Name": "id",
+        "Type": "System.Int32",
+        "IsRequired": true
       }
     ],
     "ReturnTypes": []

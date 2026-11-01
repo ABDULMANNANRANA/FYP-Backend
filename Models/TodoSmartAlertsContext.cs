@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 
@@ -23,6 +23,8 @@ public partial class TodoSmartAlertsContext : DbContext
 
     public virtual DbSet<Notification> Notifications { get; set; }
 
+    public virtual DbSet<ContactRequest> ContactRequests { get; set; }
+
     public virtual DbSet<PersonalContact> PersonalContacts { get; set; }
 
     public virtual DbSet<SnoozeLog> SnoozeLogs { get; set; }
@@ -41,9 +43,6 @@ public partial class TodoSmartAlertsContext : DbContext
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        // Program.cs configures the provider from ConnectionStrings:DefaultConnection.
-        // Keep a non-hardcoded environment-variable fallback for design-time tools,
-        // and never override provider options supplied by dependency injection.
         if (optionsBuilder.IsConfigured)
         {
             return;
@@ -291,12 +290,35 @@ public partial class TodoSmartAlertsContext : DbContext
                 .IsUnicode(false);
         });
 
+        modelBuilder.Entity<ContactRequest>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.ToTable("ContactRequests", table => {
+                table.HasCheckConstraint("CK_ContactRequests_Pair", "[LowerUserId] < [UpperUserId] AND (([SenderUserId] = [LowerUserId] AND [RecipientUserId] = [UpperUserId]) OR ([SenderUserId] = [UpperUserId] AND [RecipientUserId] = [LowerUserId]))");
+                table.HasCheckConstraint("CK_ContactRequests_Status", "[Status] IN ('Pending','Accepted','Rejected','Cancelled','Removed')");
+            });
+            entity.HasIndex(e => new { e.LowerUserId, e.UpperUserId }).IsUnique();
+            entity.HasIndex(e => new { e.RecipientUserId, e.Status });
+            entity.HasIndex(e => new { e.SenderUserId, e.Status });
+            entity.Property(e => e.Status).HasMaxLength(16);
+            entity.Property(e => e.SenderAlias).HasMaxLength(150);
+            entity.Property(e => e.Version).IsConcurrencyToken();
+            entity.HasOne<User>().WithMany().HasForeignKey(e => e.SenderUserId).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne<User>().WithMany().HasForeignKey(e => e.RecipientUserId).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne<User>().WithMany().HasForeignKey(e => e.LowerUserId).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne<User>().WithMany().HasForeignKey(e => e.UpperUserId).OnDelete(DeleteBehavior.NoAction);
+        });
+
         modelBuilder.Entity<PersonalContact>(entity =>
         {
             entity.HasKey(e => e.Id)
                 .HasName("PK_PersonalContacts");
 
             entity.ToTable("PersonalContacts");
+
+            entity.HasIndex(e => new { e.UserId, e.ContactUserId }).IsUnique()
+                .HasFilter("[ContactUserId] IS NOT NULL");
+            entity.HasOne<User>().WithMany().HasForeignKey(e => e.ContactUserId).OnDelete(DeleteBehavior.NoAction);
 
             entity.HasIndex(e => new { e.UserId, e.Phone })
                 .IsUnique()

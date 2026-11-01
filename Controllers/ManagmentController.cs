@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using TODOLISTAPI.Services;
+using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
@@ -18,17 +20,12 @@ namespace TODOLISTAPI.Controllers
             _context = context;
         }
 
-        // ============================================================
-        // GET CURRENT USER ID FROM JWT
-        // ============================================================
         private bool TryGetCurrentUserId(out int userId)
         {
             userId = 0;
 
-            // First try "UserId"
             var userIdClaim = User.FindFirst("UserId")?.Value;
 
-            // Then try standard NameIdentifier claim
             if (string.IsNullOrWhiteSpace(userIdClaim))
             {
                 userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -37,19 +34,11 @@ namespace TODOLISTAPI.Controllers
             return int.TryParse(userIdClaim, out userId);
         }
 
-
-        // ============================================================
-        // ADD MEMBER TO GROUP
-        // POST: api/Managment/{groupId}/members
-        // ============================================================
         [HttpPost("{groupId}/members")]
         public async Task<IActionResult> AddMember(int groupId, [FromBody] AddGroupMemberDto model)
         {
             try
             {
-                // ----------------------------------------------------
-                // Validate JWT
-                // ----------------------------------------------------
                 if (!TryGetCurrentUserId(out int loggedInUserId))
                 {
                     return Unauthorized(new
@@ -59,9 +48,6 @@ namespace TODOLISTAPI.Controllers
                     });
                 }
 
-                // ----------------------------------------------------
-                // Validate request
-                // ----------------------------------------------------
                 if (model == null)
                 {
                     return BadRequest(new
@@ -80,7 +66,7 @@ namespace TODOLISTAPI.Controllers
                     });
                 }
 
-                if (string.IsNullOrWhiteSpace(model.Phone))
+                if (!model.UserId.HasValue && string.IsNullOrWhiteSpace(model.Phone))
                 {
                     return BadRequest(new
                     {
@@ -89,9 +75,6 @@ namespace TODOLISTAPI.Controllers
                     });
                 }
 
-                // ----------------------------------------------------
-                // Find group
-                // ----------------------------------------------------
                 var group = await _context.GroupsUsers
                     .FirstOrDefaultAsync(g => g.Id == groupId);
 
@@ -104,18 +87,12 @@ namespace TODOLISTAPI.Controllers
                     });
                 }
 
-                // ----------------------------------------------------
-                // Check group ownership
-                // ----------------------------------------------------
                 if (group.CreatedBy != loggedInUserId)
                 {
                     return Forbid();
                 }
 
-                // ----------------------------------------------------
-                // Prevent duplicate phone number in same group
-                // ----------------------------------------------------
-                string phone = model.Phone.Trim();
+                string phone = model.Phone?.Trim() ?? "";
 
                 bool phoneExists = await _context.GroupMembers
                     .AnyAsync(x =>
@@ -131,15 +108,12 @@ namespace TODOLISTAPI.Controllers
                     });
                 }
 
-                // ----------------------------------------------------
-                // If registered user ID supplied, verify user exists
-                // ----------------------------------------------------
                 if (model.UserId.HasValue)
                 {
-                    bool userExists = await _context.Users
-                        .AnyAsync(x => x.Id == model.UserId.Value);
+                    var selectedUser = await _context.Users
+                        .FirstOrDefaultAsync(x => x.Id == model.UserId.Value && x.IsActive == true);
 
-                    if (!userExists)
+                    if (selectedUser == null)
                     {
                         return BadRequest(new
                         {
@@ -148,7 +122,8 @@ namespace TODOLISTAPI.Controllers
                         });
                     }
 
-                    // Prevent same registered user from being added twice
+                    model.Name = $"{selectedUser.FirstName} {selectedUser.LastName}".Trim();
+                    phone = selectedUser.PhoneNumber ?? phone;
                     bool alreadyMember = await _context.GroupMembers
                         .AnyAsync(x =>
                             x.GroupId == groupId &&
@@ -164,9 +139,6 @@ namespace TODOLISTAPI.Controllers
                     }
                 }
 
-                // ----------------------------------------------------
-                // Create member
-                // ----------------------------------------------------
                 var member = new GroupMember
                 {
                     GroupId = groupId,
@@ -199,27 +171,29 @@ namespace TODOLISTAPI.Controllers
             }
             catch (Exception ex)
             {
+                HttpContext.RequestServices.GetRequiredService<ILogger<ManagmentController>>().LogError(ex, "Request failed");
                 return StatusCode(500, new
                 {
                     success = false,
-                    message = ex.Message
+                    message = "The request could not be completed. Please try again."
                 });
             }
         }
 
+        [HttpGet("task-recipients")]
+        public async Task<IActionResult> GetTaskRecipients(CancellationToken cancellationToken)
+        {
+            if (!TryGetCurrentUserId(out int userId)) return Unauthorized();
+            var directory = await TaskRecipientDirectory.LoadAsync(_context, userId, cancellationToken);
+            return Ok(new { success = true, data = new { currentUserId = userId,
+                contacts = directory.Contacts, groups = directory.Groups } });
+        }
 
-        // ============================================================
-        // CREATE TASK
-        // POST: api/Managment/task
-        // ============================================================
         [HttpPost("task")]
         public async Task<IActionResult> CreateTask([FromBody] CreateTaskDto model)
         {
             try
             {
-                // ----------------------------------------------------
-                // Validate request
-                // ----------------------------------------------------
                 if (model == null)
                 {
                     return BadRequest(new
@@ -229,6 +203,8 @@ namespace TODOLISTAPI.Controllers
                     });
                 }
 
+                if (model.Title?.Trim().Length > 300)
+                    return BadRequest(new { success = false, message = "Title must be 300 characters or fewer." });
                 if (string.IsNullOrWhiteSpace(model.Title))
                 {
                     return BadRequest(new
@@ -247,8 +223,6 @@ namespace TODOLISTAPI.Controllers
                     });
                 }
 
-                // The schedule must be explicit. A time-based task always has
-                // both a date and time; a non-time-based task has a date only.
                 if (!model.IsTimeBased.HasValue)
                 {
                     return BadRequest(new
@@ -285,7 +259,6 @@ namespace TODOLISTAPI.Controllers
                     });
                 }
 
-                // Map coordinates must be supplied as a valid pair.
                 if (model.Latitude.HasValue != model.Longitude.HasValue)
                 {
                     return BadRequest(new
@@ -313,18 +286,15 @@ namespace TODOLISTAPI.Controllers
                     });
                 }
 
-                if (model.GeofenceRadiusMeters is <= 0)
+                if (model.GeofenceRadiusMeters is <= 0 or > 100000)
                 {
                     return BadRequest(new
                     {
                         success = false,
-                        message = "GeofenceRadiusMeters must be greater than zero."
+                        message = "GeofenceRadiusMeters must be between 1 and 100000."
                     });
                 }
 
-                // ----------------------------------------------------
-                // Get logged-in user
-                // ----------------------------------------------------
                 if (!TryGetCurrentUserId(out int loggedInUserId))
                 {
                     return Unauthorized(new
@@ -334,9 +304,30 @@ namespace TODOLISTAPI.Controllers
                     });
                 }
 
-                // ----------------------------------------------------
-                // Validate group if supplied
-                // ----------------------------------------------------
+                if (model.GroupId.HasValue && model.AssignedTo.HasValue)
+                    return BadRequest(new { success = false, message = "Select either one contact or one group, not both." });
+                if (model.AssignedTo is <= 0)
+                    return BadRequest(new { success = false, message = "AssignedTo must be a valid user ID." });
+                int? assignedTo = model.AssignedTo == loggedInUserId ? null : model.AssignedTo;
+                if (assignedTo.HasValue)
+                {
+                    var directory = await TaskRecipientDirectory.LoadAsync(_context, loggedInUserId, HttpContext.RequestAborted);
+                    if (!directory.Contacts.Any(c => c.UserId == assignedTo.Value))
+                        return StatusCode(403, new { success = false, message = "Select an active registered contact from your contact list." });
+                }
+                var mentionIds = (model.MentionedUserIds ?? new List<int>()).Distinct().ToList();
+                if (mentionIds.Count > 0)
+                {
+                    if (!model.GroupId.HasValue || mentionIds.Contains(loggedInUserId) || mentionIds.Any(id => id <= 0))
+                        return BadRequest(new { success = false, message = "Mentions must be other registered members of the selected group." });
+                    var validMentionIds = await _context.GroupMembers
+                        .Where(m => m.GroupId == model.GroupId.Value && m.UserId.HasValue &&
+                            mentionIds.Contains(m.UserId.Value) && m.User != null && m.User.IsActive == true)
+                        .Select(m => m.UserId!.Value).Distinct().ToListAsync();
+                    if (validMentionIds.Count != mentionIds.Count)
+                        return BadRequest(new { success = false, message = "One or more mentioned users are not active members of the selected group." });
+                }
+
                 if (model.GroupId.HasValue)
                 {
                     bool groupExists = await _context.GroupsUsers
@@ -352,15 +343,15 @@ namespace TODOLISTAPI.Controllers
                     }
                 }
 
-                // ----------------------------------------------------
-                // Normalize schedule values before persistence
-                // ----------------------------------------------------
+                if (model.GroupId.HasValue && !await _context.GroupsUsers.AnyAsync(g =>
+                    g.Id == model.GroupId.Value && (g.CreatedBy == loggedInUserId ||
+                    g.GroupMembers.Any(m => m.UserId == loggedInUserId))))
+                    return Forbid();
+
+                await using var transaction = await _context.Database.BeginTransactionAsync();
                 var isTimeBased = model.IsTimeBased.Value;
                 TimeOnly? dueTime = isTimeBased ? model.DueTime : null;
 
-                // ----------------------------------------------------
-                // Create task
-                // ----------------------------------------------------
                 var task = new Models.Task
                 {
                     Title = model.Title.Trim(),
@@ -373,15 +364,13 @@ namespace TODOLISTAPI.Controllers
 
                     GroupId = model.GroupId,
 
-                    // Location based / place reminder.
-                    // Defaults match the database defaults (200 m, enabled).
                     Latitude = model.Latitude,
                     Longitude = model.Longitude,
                     GeofenceRadiusMeters = model.GeofenceRadiusMeters ?? 200,
                     GeofenceEnabled = model.GeofenceEnabled ?? true,
 
                     CreatedBy = loggedInUserId,
-                    AssignedTo = null,
+                    AssignedTo = assignedTo,
 
                     Status = "Pending",
 
@@ -393,23 +382,11 @@ namespace TODOLISTAPI.Controllers
 
                 await _context.SaveChangesAsync();
 
-                // =====================================================
-                // NOTIFICATIONS: "created the task"
-                //
-                // Group task -> notify the other group members so it
-                // shows in their NotificationScreen AND the group
-                // activity feed. Personal task -> nobody else is
-                // involved.
-                // =====================================================
+                var creator = await _context.Users.AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.Id == loggedInUserId);
+                var creatorName = creator == null ? "A contact" : $"{creator.FirstName} {creator.LastName}".Trim();
                 if (task.GroupId != null)
                 {
-                    var creator = await _context.Users
-                        .FirstOrDefaultAsync(u => u.Id == loggedInUserId);
-
-                    var creatorName = creator != null
-                        ? ($"{creator.FirstName} {creator.LastName}").Trim()
-                        : "Someone";
-
                     var groupName = await _context.GroupsUsers
                         .Where(g => g.Id == task.GroupId.Value)
                         .Select(g => g.Name)
@@ -442,9 +419,26 @@ namespace TODOLISTAPI.Controllers
                         });
                     }
 
-                    await _context.SaveChangesAsync();
                 }
-
+                else if (assignedTo.HasValue)
+                {
+                    _context.Notifications.Add(new Notification
+                    {
+                        TaskId = task.Id, UserId = assignedTo.Value, SenderId = loggedInUserId,
+                        Type = "TaskAssigned", Message = $"{creatorName} assigned the task \"{task.Title}\" to you.",
+                        IsRead = false, SentAt = DateTime.Now
+                    });
+                }
+                foreach (var mentionedUserId in mentionIds)
+                {
+                    _context.TaskMentions.Add(new TaskMention { TaskId = task.Id, MentionedUserId = mentionedUserId,
+                        MentionedBy = loggedInUserId, MentionedAt = DateTime.Now });
+                    _context.Notifications.Add(new Notification { TaskId = task.Id, UserId = mentionedUserId,
+                        SenderId = loggedInUserId, Type = "Mention", IsRead = false, SentAt = DateTime.Now,
+                        Message = $"{creatorName} mentioned you in task \"{task.Title}\"." });
+                }
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
                 return Ok(new
                 {
                     success = true,
@@ -472,19 +466,15 @@ namespace TODOLISTAPI.Controllers
             }
             catch (Exception ex)
             {
+                HttpContext.RequestServices.GetRequiredService<ILogger<ManagmentController>>().LogError(ex, "Request failed");
                 return StatusCode(500, new
                 {
                     success = false,
-                    message = ex.Message
+                    message = "The request could not be completed. Please try again."
                 });
             }
         }
 
-
-        // ============================================================
-        // CREATE GROUP
-        // POST: api/Managment/group
-        // ============================================================
         [HttpPost("group")]
         public async Task<IActionResult> CreateGroup([FromBody] CreateGroupRequest request)
         {
@@ -506,9 +496,6 @@ namespace TODOLISTAPI.Controllers
                 });
             }
 
-            // --------------------------------------------------------
-            // Get current user
-            // --------------------------------------------------------
             if (!TryGetCurrentUserId(out int currentUserId))
             {
                 return Unauthorized(new
@@ -523,9 +510,6 @@ namespace TODOLISTAPI.Controllers
 
             try
             {
-                // ----------------------------------------------------
-                // Create Group
-                // ----------------------------------------------------
                 var group = new GroupsUser
                 {
                     Name = request.Name.Trim(),
@@ -537,9 +521,6 @@ namespace TODOLISTAPI.Controllers
 
                 await _context.SaveChangesAsync();
 
-                // ----------------------------------------------------
-                // Add creator as Admin
-                // ----------------------------------------------------
                 var adminMember = new GroupMember
                 {
                     GroupId = group.Id,
@@ -550,26 +531,20 @@ namespace TODOLISTAPI.Controllers
 
                 _context.GroupMembers.Add(adminMember);
 
-                // ----------------------------------------------------
-                // Add registered users
-                // ----------------------------------------------------
                 if (request.MemberUserIds != null &&
                     request.MemberUserIds.Any())
                 {
                     foreach (var memberId in request.MemberUserIds.Distinct())
                     {
-                        // Don't add creator twice
                         if (memberId == currentUserId)
                             continue;
 
-                        // Check user exists
                         bool userExists = await _context.Users
                             .AnyAsync(x => x.Id == memberId);
 
                         if (!userExists)
                             continue;
 
-                        // Check if already member
                         bool alreadyMember =
                             await _context.GroupMembers.AnyAsync(x =>
                                 x.GroupId == group.Id &&
@@ -588,9 +563,6 @@ namespace TODOLISTAPI.Controllers
                     }
                 }
 
-                // ----------------------------------------------------
-                // Add external members
-                // ----------------------------------------------------
                 if (request.ExternalMembers != null &&
                     request.ExternalMembers.Any())
                 {
@@ -616,14 +588,8 @@ namespace TODOLISTAPI.Controllers
                     }
                 }
 
-                // ----------------------------------------------------
-                // Save members
-                // ----------------------------------------------------
                 await _context.SaveChangesAsync();
 
-                // ----------------------------------------------------
-                // Commit
-                // ----------------------------------------------------
                 await transaction.CommitAsync();
 
                 return Ok(new
@@ -641,33 +607,22 @@ namespace TODOLISTAPI.Controllers
             }
             catch (Exception ex)
             {
+                HttpContext.RequestServices.GetRequiredService<ILogger<ManagmentController>>().LogError(ex, "Request failed");
                 await transaction.RollbackAsync();
 
                 return StatusCode(500, new
                 {
                     success = false,
-                    message = ex.Message
+                    message = "The request could not be completed. Please try again."
                 });
             }
         }
 
-
-        // ============================================================
-        // UPDATE TASK
-        // PUT: api/Managment/{id}
-        //
-        // IMPORTANT:
-        // There is ONLY ONE UpdateTask method now.
-        // It supports both time-based and non-time-based tasks.
-        // ============================================================
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateTask(int id, [FromBody] UpdateTaskRequest request)
         {
             try
             {
-                // ----------------------------------------------------
-                // Validate request
-                // ----------------------------------------------------
                 if (request == null)
                 {
                     return BadRequest(new
@@ -677,6 +632,8 @@ namespace TODOLISTAPI.Controllers
                     });
                 }
 
+                if (request.Title?.Trim().Length > 300)
+                    return BadRequest(new { success = false, message = "Title must be 300 characters or fewer." });
                 if (string.IsNullOrWhiteSpace(request.Title))
                 {
                     return BadRequest(new
@@ -695,9 +652,69 @@ namespace TODOLISTAPI.Controllers
                     });
                 }
 
-                // ----------------------------------------------------
-                // Get logged-in user
-                // ----------------------------------------------------
+                if (!request.DueDate.HasValue)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "DueDate is required for a task."
+                    });
+                }
+
+                if (request.IsTimeBased && !request.DueTime.HasValue)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "DueTime is required for a time-based task."
+                    });
+                }
+
+                if (!request.IsTimeBased && request.DueTime.HasValue)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "DueTime must be empty for a non-time-based task."
+                    });
+                }
+
+                if (request.Latitude.HasValue != request.Longitude.HasValue)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Latitude and Longitude must be supplied together."
+                    });
+                }
+
+                if (request.Latitude is < -90 or > 90)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Latitude must be between -90 and 90."
+                    });
+                }
+
+                if (request.Longitude is < -180 or > 180)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Longitude must be between -180 and 180."
+                    });
+                }
+
+                if (request.GeofenceRadiusMeters is <= 0 or > 100000)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "GeofenceRadiusMeters must be between 1 and 100000."
+                    });
+                }
+
                 if (!TryGetCurrentUserId(out int currentUserId))
                 {
                     return Unauthorized(new
@@ -707,9 +724,6 @@ namespace TODOLISTAPI.Controllers
                     });
                 }
 
-                // ----------------------------------------------------
-                // Find task belonging to current user
-                // ----------------------------------------------------
                 var task = await _context.Tasks
                     .FirstOrDefaultAsync(x =>
                         x.Id == id &&
@@ -724,9 +738,6 @@ namespace TODOLISTAPI.Controllers
                     });
                 }
 
-                // ----------------------------------------------------
-                // Update task
-                // ----------------------------------------------------
                 task.Title = request.Title.Trim();
 
                 task.Description = request.Description.Trim();
@@ -735,7 +746,6 @@ namespace TODOLISTAPI.Controllers
 
                 task.IsTimeBased = request.IsTimeBased;
 
-                // Place: only overwrite what the client actually sent.
                 if (request.Latitude.HasValue)
                 {
                     task.Latitude = request.Latitude;
@@ -756,16 +766,12 @@ namespace TODOLISTAPI.Controllers
                     task.GeofenceEnabled = request.GeofenceEnabled.Value;
                 }
 
-                // ----------------------------------------------------
-                // Time-based task
-                // ----------------------------------------------------
                 if (request.IsTimeBased)
                 {
                     task.DueTime = request.DueTime;
                 }
                 else
                 {
-                    // Non-time-based task should not have a time
                     task.DueTime = null;
                 }
 
@@ -795,27 +801,20 @@ namespace TODOLISTAPI.Controllers
             }
             catch (Exception ex)
             {
+                HttpContext.RequestServices.GetRequiredService<ILogger<ManagmentController>>().LogError(ex, "Request failed");
                 return StatusCode(500, new
                 {
                     success = false,
-                    message = ex.Message
+                    message = "The request could not be completed. Please try again."
                 });
             }
         }
 
-
-        // ============================================================
-        // FORWARD TASK
-        // POST: api/Managment/{taskId}/forward
-        // ============================================================
         [HttpPost("{taskId}/forward")]
         public async Task<IActionResult> ForwardTask(int taskId, [FromBody] ForwardTaskRequest request)
         {
             try
             {
-                // ----------------------------------------------------
-                // Validate request
-                // ----------------------------------------------------
                 if (request == null ||
                     request.ToUserIds == null ||
                     request.ToUserIds.Count == 0)
@@ -827,9 +826,6 @@ namespace TODOLISTAPI.Controllers
                     });
                 }
 
-                // ----------------------------------------------------
-                // Get logged-in user
-                // ----------------------------------------------------
                 if (!TryGetCurrentUserId(out int currentUserId))
                 {
                     return Unauthorized(new
@@ -839,9 +835,6 @@ namespace TODOLISTAPI.Controllers
                     });
                 }
 
-                // ----------------------------------------------------
-                // Find task
-                // ----------------------------------------------------
                 var task = await _context.Tasks
                     .FirstOrDefaultAsync(x =>
                         x.Id == taskId &&
@@ -856,8 +849,6 @@ namespace TODOLISTAPI.Controllers
                     });
                 }
 
-                // Completed tasks must not be forwarded, even if an older
-                // client still tries to call this endpoint directly.
                 if (string.Equals(task.Status, "Done", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(task.Status, "Completed", StringComparison.OrdinalIgnoreCase))
                 {
@@ -877,24 +868,15 @@ namespace TODOLISTAPI.Controllers
 
                     foreach (int userId in request.ToUserIds.Distinct())
                     {
-                        // ------------------------------------------------
-                        // Don't forward to yourself
-                        // ------------------------------------------------
                         if (userId == currentUserId)
                             continue;
 
-                        // ------------------------------------------------
-                        // Check user exists
-                        // ------------------------------------------------
                         bool userExists = await _context.Users
                             .AnyAsync(x => x.Id == userId);
 
                         if (!userExists)
                             continue;
 
-                        // ------------------------------------------------
-                        // Check if already forwarded
-                        // ------------------------------------------------
                         bool alreadyForwarded =
                             await _context.ForwardedTasks.AnyAsync(x =>
                                 x.OriginalTaskId == taskId &&
@@ -903,9 +885,6 @@ namespace TODOLISTAPI.Controllers
                         if (alreadyForwarded)
                             continue;
 
-                        // ------------------------------------------------
-                        // Create forwarded task record
-                        // ------------------------------------------------
                         _context.ForwardedTasks.Add(
                             new ForwardedTask
                             {
@@ -915,14 +894,13 @@ namespace TODOLISTAPI.Controllers
                                 ForwardedAt = DateTime.Now
                             });
 
-                        // ------------------------------------------------
-                        // Create notification
-                        // ------------------------------------------------
                         _context.Notifications.Add(
                             new Notification
                             {
                                 TaskId = taskId,
                                 UserId = userId,
+                                SenderId = currentUserId,
+                                Type = "TaskForwarded",
                                 Message =
                                     $"A task \"{task.Title}\" has been forwarded to you.",
                                 IsRead = false,
@@ -932,14 +910,8 @@ namespace TODOLISTAPI.Controllers
                         forwardedCount++;
                     }
 
-                    // ------------------------------------------------
-                    // Save
-                    // ------------------------------------------------
                     await _context.SaveChangesAsync();
 
-                    // ------------------------------------------------
-                    // Commit
-                    // ------------------------------------------------
                     await transaction.CommitAsync();
 
                     return Ok(new
@@ -951,21 +923,23 @@ namespace TODOLISTAPI.Controllers
                 }
                 catch (Exception ex)
                 {
+                HttpContext.RequestServices.GetRequiredService<ILogger<ManagmentController>>().LogError(ex, "Request failed");
                     await transaction.RollbackAsync();
 
                     return StatusCode(500, new
                     {
                         success = false,
-                        message = ex.Message
+                        message = "The request could not be completed. Please try again."
                     });
                 }
             }
             catch (Exception ex)
             {
+                HttpContext.RequestServices.GetRequiredService<ILogger<ManagmentController>>().LogError(ex, "Request failed");
                 return StatusCode(500, new
                 {
                     success = false,
-                    message = ex.Message
+                    message = "The request could not be completed. Please try again."
                 });
             }
         }
@@ -1012,23 +986,23 @@ namespace TODOLISTAPI.Controllers
                         userId = m.UserId,
 
                         name = m.UserId != null
-                            ? ((m.User.FirstName ?? "") + " " + (m.User.LastName ?? "")).Trim()
+                            ? ((m.User!.FirstName ?? "") + " " + (m.User!.LastName ?? "")).Trim()
                             : (m.Name ?? "External Member"),
 
                         firstName = m.UserId != null
-                            ? m.User.FirstName
+                            ? m.User!.FirstName
                             : m.Name,
 
                         lastName = m.UserId != null
-                            ? m.User.LastName
+                            ? m.User!.LastName
                             : "",
 
                         email = m.UserId != null
-                            ? m.User.Email
+                            ? m.User!.Email
                             : null,
 
                         phone = m.UserId != null
-                            ? m.User.PhoneNumber
+                            ? m.User!.PhoneNumber
                             : m.Phone,
 
                         role = m.Role,
@@ -1054,55 +1028,49 @@ namespace TODOLISTAPI.Controllers
             }
             catch (Exception ex)
             {
+                HttpContext.RequestServices.GetRequiredService<ILogger<ManagmentController>>().LogError(ex, "Request failed");
                 return StatusCode(500, new
                 {
                     success = false,
-                    message = ex.Message
+                    message = "The request could not be completed. Please try again."
                 });
             }
         }
 
     }
 
-
-    // ================================================================
-    // DTOs
-    // ================================================================
-
     public class AddGroupMemberDto
     {
         public int? UserId { get; set; }
 
-        public string Name { get; set; }
+        [StringLength(150)]
+        public string Name { get; set; } = "";
 
-        public string Phone { get; set; }
+        [StringLength(20)]
+        public string Phone { get; set; } = "";
     }
 
-
-    // ================================================================
-    // CREATE TASK DTO
-    // ================================================================
     public class CreateTaskDto
     {
-        public string Title { get; set; }
+        [StringLength(300)]
+        public string Title { get; set; } = "";
 
-        public string Description { get; set; }
+        public string Description { get; set; } = "";
 
         public DateOnly? DueDate { get; set; }
 
         public TimeOnly? DueTime { get; set; }
 
-        // Nullable so the API can reject requests that did not choose a mode.
         public bool? IsTimeBased { get; set; }
 
         public int? GroupId { get; set; }
 
-        // ------------------------------------------------------------
-        // OPTIONAL MAP / GEOFENCE DATA
-        //
-        // A task may have an arrival reminder as well as its selected date
-        // schedule. Tasks without coordinates do not raise a place reminder.
-        // ------------------------------------------------------------
+        // Null for Myself/group tasks; a registered contact's USER ID for an individual task.
+        public int? AssignedTo { get; set; }
+
+        [MaxLength(100)]
+        public List<int>? MentionedUserIds { get; set; } = new();
+
         public decimal? Latitude { get; set; }
 
         public decimal? Longitude { get; set; }
@@ -1112,43 +1080,32 @@ namespace TODOLISTAPI.Controllers
         public bool? GeofenceEnabled { get; set; }
     }
 
-
-    // ================================================================
-    // CREATE GROUP REQUEST
-    // ================================================================
     public class CreateGroupRequest
     {
-        public string Name { get; set; }
+        [StringLength(150)]
+        public string Name { get; set; } = "";
 
+        [MaxLength(100)]
         public List<int> MemberUserIds { get; set; } = new();
 
         public List<ExternalMemberDto> ExternalMembers { get; set; } = new();
     }
 
-
-    // ================================================================
-    // EXTERNAL MEMBER
-    // ================================================================
     public class ExternalMemberDto
     {
-        public string Name { get; set; }
+        [StringLength(150)]
+        public string Name { get; set; } = "";
 
-        public string Phone { get; set; }
+        [StringLength(20)]
+        public string Phone { get; set; } = "";
     }
 
-
-    // ================================================================
-    // UPDATE TASK REQUEST
-    //
-    // Supports:
-    // 1. Time-based tasks
-    // 2. Non-time-based tasks
-    // ================================================================
     public class UpdateTaskRequest
     {
-        public string Title { get; set; }
+        [StringLength(300)]
+        public string Title { get; set; } = "";
 
-        public string Description { get; set; }
+        public string Description { get; set; } = "";
 
         public DateOnly? DueDate { get; set; }
 
@@ -1156,8 +1113,6 @@ namespace TODOLISTAPI.Controllers
 
         public bool IsTimeBased { get; set; }
 
-        // Place fields for a Location Based task. Applied only when the
-        // client sends them, so a partial edit cannot wipe a saved place.
         public decimal? Latitude { get; set; }
 
         public decimal? Longitude { get; set; }
@@ -1167,803 +1122,10 @@ namespace TODOLISTAPI.Controllers
         public bool? GeofenceEnabled { get; set; }
     }
 
-
-    // ================================================================
-    // FORWARD TASK REQUEST
-    // ================================================================
     public class ForwardTaskRequest
     {
+        [MaxLength(100)]
         public List<int> ToUserIds { get; set; } = new();
     }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-//using Microsoft.AspNetCore.Authorization;
-//using Microsoft.AspNetCore.Http;
-//using Microsoft.AspNetCore.Mvc;
-//using TODOLISTAPI.Models;
-//using Microsoft.EntityFrameworkCore;
-//using Microsoft.AspNetCore.Authorization;
-//using System.Security.Claims;
-
-//namespace TODOLISTAPI.Controllers
-//{
-//    [Route("api/[controller]")]
-//    [ApiController]
-//    [Authorize]
-//    public class ManagmentController : ControllerBase
-//    {
-//        private readonly TodoSmartAlertsContext _context;
-
-//        public ManagmentController(TodoSmartAlertsContext context)
-//        {
-//            _context = context;
-//        }
-
-//        [Authorize]
-//        [HttpPost("{groupId}/members")]
-//        public async Task<IActionResult> AddMember( int groupId, [FromBody] AddGroupMemberDto model)
-//        {
-//            try
-//            {
-//                // Get logged-in user from JWT
-//                var userIdClaim = User.FindFirst("UserId")?.Value;
-
-//                if (string.IsNullOrEmpty(userIdClaim))
-//                {
-//                    return Unauthorized(new
-//                    {
-//                        success = false,
-//                        message = "Invalid or expired token."
-//                    });
-//                }
-
-//                int loggedInUserId = int.Parse(userIdClaim);
-
-//                // Validate group belongs to logged-in user
-//                var group = await _context.GroupsUsers.FirstOrDefaultAsync(g =>
-//                    g.Id == groupId &&
-//                    g.Id == loggedInUserId);   // <-- Use UserId here
-
-//                if (group == null)
-//                {
-//                    return NotFound(new
-//                    {
-//                        success = false,
-//                        message = "Group not found or access denied."
-//                    });
-//                }
-
-//                // Validate request
-//                if (string.IsNullOrWhiteSpace(model.Name))
-//                {
-//                    return BadRequest(new
-//                    {
-//                        success = false,
-//                        message = "Member name is required."
-//                    });
-//                }
-
-//                if (string.IsNullOrWhiteSpace(model.Phone))
-//                {
-//                    return BadRequest(new
-//                    {
-//                        success = false,
-//                        message = "Phone number is required."
-//                    });
-//                }
-
-//                // Prevent duplicate phone in same group
-//                bool exists = await _context.GroupMembers.AnyAsync(x =>
-//                    x.GroupId == groupId &&
-//                    x.Phone == model.Phone);
-
-//                if (exists)
-//                {
-//                    return BadRequest(new
-//                    {
-//                        success = false,
-//                        message = "This phone number already exists in the selected group."
-//                    });
-//                }
-
-//                // Create member
-//                GroupMember member = new GroupMember
-//                {
-//                    GroupId = groupId,
-//                    UserId = model.UserId,
-//                    Name = model.Name.Trim(),
-//                    Phone = model.Phone.Trim(),
-//                    Role = "Member",
-//                    AddedAt = DateTime.Now
-//                };
-
-//                _context.GroupMembers.Add(member);
-
-//                await _context.SaveChangesAsync();
-
-//                return Ok(new
-//                {
-//                    success = true,
-//                    message = "Member added successfully.",
-//                    data = new
-//                    {
-//                        id = member.Id,
-//                        groupId = member.GroupId,
-//                        userId = member.UserId,
-//                        name = member.Name,
-//                        phone = member.Phone,
-//                        role = member.Role,
-//                        isRegistered = member.UserId != null
-//                    }
-//                });
-//            }
-//            catch (Exception ex)
-//            {
-//                return StatusCode(500, new
-//                {
-//                    success = false,
-//                    message = ex.Message
-//                });
-//            }
-//        }
-
-//        //--------------------------------------------------------
-//        // POST : /tasks
-//        //--------------------------------------------------------
-//        [HttpPost("task")]
-//        public async Task<IActionResult> CreateTask([FromBody] CreateTaskDto model)
-//        {
-//            try
-//            {
-//                // Validate request
-//                if (model == null)
-//                {
-//                    return BadRequest(new
-//                    {
-//                        success = false,
-//                        message = "Request body is required."
-//                    });
-//                }
-
-//                if (string.IsNullOrWhiteSpace(model.Title))
-//                {
-//                    return BadRequest(new
-//                    {
-//                        success = false,
-//                        message = "Title is required."
-//                    });
-//                }
-
-//                if (string.IsNullOrWhiteSpace(model.Description))
-//                {
-//                    return BadRequest(new
-//                    {
-//                        success = false,
-//                        message = "Description is required."
-//                    });
-//                }
-
-//                // Validate Group if supplied
-//                if (model.GroupId != null)
-//                {
-//                    bool groupExists = await _context.GroupsUsers
-//                        .AnyAsync(g => g.Id == model.GroupId);
-
-//                    if (!groupExists)
-//                    {
-//                        return BadRequest(new
-//                        {
-//                            success = false,
-//                            message = "Selected group does not exist."
-//                        });
-//                    }
-//                }
-
-//                // Get logged-in user ID from JWT
-//                var userIdClaim = User.FindFirst("UserId")?.Value;
-
-//                if (string.IsNullOrWhiteSpace(userIdClaim))
-//                {
-//                    // Also try NameIdentifier in case your JWT uses that claim
-//                    userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-//                }
-
-//                if (!int.TryParse(userIdClaim, out int loggedInUserId))
-//                {
-//                    return Unauthorized(new
-//                    {
-//                        success = false,
-//                        message = "Invalid or expired token."
-//                    });
-//                }
-
-//                // Create task
-//                var task = new Models.Task
-//                {
-//                    Title = model.Title.Trim(),
-//                    Description = model.Description.Trim(),
-//                    IsTimeBased = model.IsTimeBased,
-//                    DueDate = model.DueDate,
-//                    DueTime = model.DueTime,
-//                    GroupId = model.GroupId,
-//                    CreatedBy = loggedInUserId,
-//                    AssignedTo = null,
-//                    Status = "Pending",
-//                    CreatedAt = DateTime.Now,
-//                    UpdatedAt = DateTime.Now
-//                };
-
-//                _context.Tasks.Add(task);
-
-//                await _context.SaveChangesAsync();
-
-//                return Ok(new
-//                {
-//                    success = true,
-//                    message = "Task has been created successfully.",
-//                    data = new
-//                    {
-//                        id = task.Id,
-//                        title = task.Title,
-//                        description = task.Description,
-//                        dueDate = task.DueDate,
-//                        dueTime = task.DueTime,
-//                        isTimeBased = task.IsTimeBased,
-//                        groupId = task.GroupId,
-//                        status = task.Status,
-//                        createdBy = task.CreatedBy,
-//                        createdAt = task.CreatedAt
-//                    }
-//                });
-//            }
-//            catch (Exception ex)
-//            {
-//                return StatusCode(500, new
-//                {
-//                    success = false,
-//                    message = ex.Message
-//                });
-//            }
-//        }
-
-//        [HttpPost("group")]
-//        public async Task<IActionResult> CreateGroup([FromBody] CreateGroupRequest request)
-//        {
-//            if (request == null)
-//            {
-//                return BadRequest(new
-//                {
-//                    success = false,
-//                    message = "Request body is required."
-//                });
-//            }
-
-//            if (string.IsNullOrWhiteSpace(request.Name))
-//            {
-//                return BadRequest(new
-//                {
-//                    success = false,
-//                    message = "Group name is required."
-//                });
-//            }
-
-//            // Get logged-in user ID from JWT
-//            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-//            if (string.IsNullOrWhiteSpace(userIdClaim))
-//            {
-//                // Also try UserId claim
-//                userIdClaim = User.FindFirst("UserId")?.Value;
-//            }
-
-//            if (!int.TryParse(userIdClaim, out int currentUserId))
-//            {
-//                return Unauthorized(new
-//                {
-//                    success = false,
-//                    message = "Invalid token."
-//                });
-//            }
-
-//            using var transaction = await _context.Database.BeginTransactionAsync();
-
-//            try
-//            {
-//                //------------------------------------------------------
-//                // Create Group
-//                //------------------------------------------------------
-//                var group = new GroupsUser
-//                {
-//                    Name = request.Name.Trim(),
-//                    CreatedBy = currentUserId,
-//                    CreatedAt = DateTime.Now
-//                };
-
-//                _context.GroupsUsers.Add(group);
-
-//                await _context.SaveChangesAsync();
-
-//                //------------------------------------------------------
-//                // Add creator as Admin
-//                //------------------------------------------------------
-//                var adminMember = new GroupMember
-//                {
-//                    GroupId = group.Id,
-//                    UserId = currentUserId,
-//                    Role = "Admin",
-//                    AddedAt = DateTime.Now
-//                };
-
-//                _context.GroupMembers.Add(adminMember);
-
-//                //------------------------------------------------------
-//                // Add Registered Users
-//                //------------------------------------------------------
-//                if (request.MemberUserIds != null &&
-//                    request.MemberUserIds.Any())
-//                {
-//                    foreach (var memberId in request.MemberUserIds.Distinct())
-//                    {
-//                        // Don't add creator twice
-//                        if (memberId == currentUserId)
-//                            continue;
-
-//                        // Check whether user exists
-//                        bool exists = await _context.Users
-//                            .AnyAsync(x => x.Id == memberId);
-
-//                        if (!exists)
-//                            continue;
-
-//                        _context.GroupMembers.Add(new GroupMember
-//                        {
-//                            GroupId = group.Id,
-//                            UserId = memberId,
-//                            Role = "Member",
-//                            AddedAt = DateTime.Now
-//                        });
-//                    }
-//                }
-
-//                //------------------------------------------------------
-//                // Add External Members
-//                //------------------------------------------------------
-//                if (request.ExternalMembers != null &&
-//                    request.ExternalMembers.Any())
-//                {
-//                    foreach (var member in request.ExternalMembers)
-//                    {
-//                        if (member == null ||
-//                            string.IsNullOrWhiteSpace(member.Name))
-//                        {
-//                            continue;
-//                        }
-
-//                        _context.GroupMembers.Add(new GroupMember
-//                        {
-//                            GroupId = group.Id,
-//                            Name = member.Name.Trim(),
-//                            Phone = member.Phone,
-//                            Role = "Member",
-//                            AddedAt = DateTime.Now
-//                        });
-//                    }
-//                }
-
-//                //------------------------------------------------------
-//                // Save Members
-//                //------------------------------------------------------
-//                await _context.SaveChangesAsync();
-
-//                //------------------------------------------------------
-//                // Commit Transaction
-//                //------------------------------------------------------
-//                await transaction.CommitAsync();
-
-//                return Ok(new
-//                {
-//                    success = true,
-//                    message = "Group created successfully.",
-//                    data = new
-//                    {
-//                        groupId = group.Id,
-//                        groupName = group.Name
-//                    }
-//                });
-//            }
-//            catch (Exception ex)
-//            {
-//                await transaction.RollbackAsync();
-
-//                return StatusCode(500, new
-//                {
-//                    success = false,
-//                    message = ex.Message
-//                });
-//            }
-//        }
-
-//        [HttpPut("{id}")]
-//        public async Task<IActionResult> UpdateTask(int id, UpdateTaskRequest request)
-//        {
-//            if (!ModelState.IsValid)
-//            {
-//                return BadRequest(new
-//                {
-//                    success = false,
-//                    message = "Invalid request."
-//                });
-//            }
-
-//            var task = await _context.Tasks
-//                                     .FirstOrDefaultAsync(x => x.Id == id);
-
-//            if (task == null)
-//            {
-//                return NotFound(new
-//                {
-//                    success = false,
-//                    message = "Task not found."
-//                });
-//            }
-
-//            if (string.IsNullOrWhiteSpace(request.Title))
-//            {
-//                return BadRequest(new
-//                {
-//                    success = false,
-//                    message = "Title is required."
-//                });
-//            }
-
-//            //------------------------------------------------------
-//            // Update Task
-//            //------------------------------------------------------
-
-//            task.Title = request.Title.Trim();
-
-//            task.Description = request.Description?.Trim();
-
-//            task.DueDate = request.DueDate;
-
-//            task.IsTimeBased = request.IsTimeBased;
-
-//            // Non-Time-Based task
-//            if (!request.IsTimeBased)
-//            {
-//                task.DueTime = null;
-//            }
-
-//            await _context.SaveChangesAsync();
-
-//            return Ok(new
-//            {
-//                success = true,
-//                message = "Task updated successfully.",
-//                data = new
-//                {
-//                    task.Id,
-//                    task.Title,
-//                    task.Description,
-//                    task.DueDate,
-//                    task.DueTime,
-//                    task.IsTimeBased
-//                }
-//            });
-//        }
-
-//        [HttpPut("{id}")]
-//        public async Task<IActionResult> UpdateTask( int id, [FromBody] UpdateTimeBasedTaskRequest request)
-//        {
-//            if (!ModelState.IsValid)
-//            {
-//                return BadRequest(new
-//                {
-//                    success = false,
-//                    message = "Invalid request."
-//                });
-//            }
-
-//            if (string.IsNullOrWhiteSpace(request.Title))
-//            {
-//                return BadRequest(new
-//                {
-//                    success = false,
-//                    message = "Title is required."
-//                });
-//            }
-
-//            if (string.IsNullOrWhiteSpace(request.Description))
-//            {
-//                return BadRequest(new
-//                {
-//                    success = false,
-//                    message = "Description is required."
-//                });
-//            }
-
-//            //----------------------------------------------------
-//            // Get Logged In User
-//            //----------------------------------------------------
-
-//            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-//            if (userIdClaim == null)
-//            {
-//                return Unauthorized(new
-//                {
-//                    success = false,
-//                    message = "Invalid token."
-//                });
-//            }
-
-//            int currentUserId = Convert.ToInt32(userIdClaim);
-
-//            //----------------------------------------------------
-//            // Find Task
-//            //----------------------------------------------------
-
-//            var task = await _context.Tasks
-//                                     .FirstOrDefaultAsync(x =>
-//                                         x.Id == id &&
-//                                         x.CreatedBy == currentUserId);
-
-//            if (task == null)
-//            {
-//                return NotFound(new
-//                {
-//                    success = false,
-//                    message = "Task not found."
-//                });
-//            }
-
-//            //----------------------------------------------------
-//            // Update Task
-//            //----------------------------------------------------
-
-//            task.Title = request.Title.Trim();
-
-//            task.Description = request.Description.Trim();
-
-//            task.DueDate = request.DueDate;
-
-//            task.IsTimeBased = true;
-
-//            task.DueTime = request.DueTime;
-
-//            //----------------------------------------------------
-//            // Save
-//            //----------------------------------------------------
-
-//            await _context.SaveChangesAsync();
-
-//            return Ok(new
-//            {
-//                success = true,
-//                message = "Task updated successfully.",
-//                data = new
-//                {
-//                    task.Id,
-//                    task.Title,
-//                    task.Description,
-//                    task.DueDate,
-//                    task.DueTime,
-//                    task.IsTimeBased
-//                }
-//            });
-//        }
-
-//        [HttpPost("{taskId}/forward")]
-//        public async Task<IActionResult> ForwardTask( int taskId, [FromBody] ForwardTaskRequest request)
-//        {
-//            if (request == null ||
-//                request.ToUserIds == null ||
-//                request.ToUserIds.Count == 0)
-//            {
-//                return BadRequest(new
-//                {
-//                    success = false,
-//                    message = "Please select at least one user."
-//                });
-//            }
-
-//            //-----------------------------------------------------
-//            // Logged In User
-//            //-----------------------------------------------------
-
-//            var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-//            if (claim == null)
-//            {
-//                return Unauthorized(new
-//                {
-//                    success = false,
-//                    message = "Invalid token."
-//                });
-//            }
-
-//            int currentUserId = Convert.ToInt32(claim);
-
-//            //-----------------------------------------------------
-//            // Find Task
-//            //-----------------------------------------------------
-
-//            var task = await _context.Tasks
-//                .FirstOrDefaultAsync(x =>
-//                    x.Id == taskId &&
-//                    x.CreatedBy == currentUserId);
-
-//            if (task == null)
-//            {
-//                return NotFound(new
-//                {
-//                    success = false,
-//                    message = "Task not found."
-//                });
-//            }
-
-//            using var transaction =
-//                await _context.Database.BeginTransactionAsync();
-
-//            try
-//            {
-//                int forwardedCount = 0;
-
-//                foreach (int userId in request.ToUserIds.Distinct())
-//                {
-//                    //-------------------------------------------------
-//                    // Skip sender
-//                    //-------------------------------------------------
-
-//                    if (userId == currentUserId)
-//                        continue;
-
-//                    //-------------------------------------------------
-//                    // User Exists?
-//                    //-------------------------------------------------
-
-//                    bool userExists = await _context.Users
-//                        .AnyAsync(x => x.Id == userId);
-
-//                    if (!userExists)
-//                        continue;
-
-//                    //-------------------------------------------------
-//                    // Already Forwarded?
-//                    //-------------------------------------------------
-
-//                    bool alreadyForwarded =
-//                        await _context.ForwardedTasks.AnyAsync(x =>
-//                            x.OriginalTaskId == taskId &&
-//                            x.ForwardedTo == userId);
-
-//                    if (alreadyForwarded)
-//                        continue;
-
-//                    //-------------------------------------------------
-//                    // Insert Forwarded Task
-//                    //-------------------------------------------------
-
-//                    _context.ForwardedTasks.Add(new ForwardedTask
-//                    {
-//                        OriginalTaskId = taskId,
-//                        ForwardedBy = currentUserId,
-//                        ForwardedTo = userId,
-//                        ForwardedAt = DateTime.Now
-//                    });
-
-//                    //-------------------------------------------------
-//                    // Create Notification
-//                    //-------------------------------------------------
-
-//                    _context.Notifications.Add(new Notification
-//                    {
-//                        TaskId = taskId,
-//                        UserId = userId,
-//                        Message = $"A task \"{task.Title}\" has been forwarded to you.",
-//                        IsRead = false,
-//                        SentAt = DateTime.Now
-//                    });
-
-//                    forwardedCount++;
-//                }
-
-//                await _context.SaveChangesAsync();
-
-//                await transaction.CommitAsync();
-
-//                return Ok(new
-//                {
-//                    success = true,
-//                    message = $"{forwardedCount} task(s) forwarded successfully."
-//                });
-//            }
-//            catch (Exception ex)
-//            {
-//                await transaction.RollbackAsync();
-
-//                return StatusCode(500, new
-//                {
-//                    success = false,
-//                    message = ex.Message
-//                });
-//            }
-//        }
-//    }
-
-//    public class AddGroupMemberDto
-//    {
-//        public int? UserId { get; set; }
-//        public string Name { get; set; }
-//        public string Phone { get; set; }
-//    }
-
-//    //For Add Task for both Time based and Non Time based task
-//    public class CreateTaskDto
-//    {
-//        public string Title { get; set; }
-//        public string Description { get; set; }
-//        public DateOnly? DueDate { get; set; }
-//        public TimeOnly? DueTime { get; set; }
-//        public bool IsTimeBased { get; set; }
-//        public int? GroupId { get; set; }
-//    }
-
-//    public class CreateGroupRequest
-//    {
-//        public string Name { get; set; }
-
-//        public List<int> MemberUserIds { get; set; } = new();
-
-//        public List<ExternalMemberDto> ExternalMembers { get; set; } = new();
-//    }
-
-//    public class ExternalMemberDto
-//    {
-//        public string Name { get; set; }
-
-//        public string Phone { get; set; }
-//    }
-
-//    public class UpdateTaskRequest
-//    {
-//        public string Title { get; set; }
-
-//        public string Description { get; set; }
-
-//        public DateOnly? DueDate { get; set; }
-
-//        public bool IsTimeBased { get; set; }
-//    }
-
-//    public class UpdateTimeBasedTaskRequest
-//    {
-//        public string Title { get; set; }
-
-//        public string Description { get; set; }
-
-//        // "2026-08-10"
-//        public DateOnly? DueDate { get; set; }
-
-//        // "14:30"
-//        public TimeOnly? DueTime { get; set; }
-
-//        public bool IsTimeBased { get; set; }
-//    }
-
-//    public class ForwardTaskRequest
-//    {
-//        public List<int> ToUserIds { get; set; } = new();
-//    }
-//}
